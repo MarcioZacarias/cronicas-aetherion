@@ -34,7 +34,7 @@ HTML5 Canvas + JavaScript vanilla. Sprites embutidos em base64 (arquivo único e
 ## Deploy
 
 Hospedado em VPS Debian 13 + nginx, servido como site estático em <https://srv1927329.hstgr.cloud>
-(HTTPS via Let'''s Encrypt, renovação automática pelo `certbot.timer`).
+(HTTPS via Let's Encrypt, renovação automática pelo `certbot.timer`).
 
 O diretório `/var/www/aetherion` é um clone deste repositório, autenticado por uma
 **deploy key read-only** — o servidor lê o repositório, nunca escreve nele.
