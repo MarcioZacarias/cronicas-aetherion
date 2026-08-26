@@ -34,16 +34,21 @@ export function makeRng(seed) {
 // Variantes de fachada disponíveis no atlas gerado (city.png).
 export const VARIANTES_PREDIO = ['house', 'house2', 'chapel'];
 
-// Cores de telhado (roof.png). O telhado é visto DE CIMA, como no Tibia:
-// é a diferença de ângulo que faz um prédio parecer casa em vez de muro.
-export const CORES_TELHADO = ['turquesa', 'telha', 'ardosia', 'madeira'];
+// Telhados vistos DE CIMA — a diferença de ângulo que faz um prédio
+// parecer casa em vez de muro.
+//
+// As chaves vêm do atlas importado (public/assets/lpc-sets.json) e são
+// nomeadas pela cor MEDIDA do tile, não pelo rótulo do pacote: no
+// roofs.tsx original, "Roof_Flat_Red" é azul e "Roof_Flat_Green" é
+// vermelho. Ver tools/importar-lpc.py.
+export const CORES_TELHADO = ['vermelho', 'cinza', 'verde', 'azul', 'marrom', 'cinza3'];
 
 // Cada tipo de estabelecimento tem telhado próprio: dá para achar o banco
 // de longe, sem precisar ler a placa.
 export const TELHADO_POR_TIPO = {
-  banco: 'ardosia', prefeitura: 'ardosia', templo: 'turquesa',
-  biblioteca: 'turquesa', armaria: 'telha', botica: 'turquesa',
-  taverna: 'madeira', estacao: 'madeira',
+  banco: 'cinza3', prefeitura: 'cinza', templo: 'azul2',
+  biblioteca: 'verde', armaria: 'vermelho', botica: 'verde2',
+  taverna: 'marrom', estacao: 'marrom2',
 };
 
 export function buildWorld() {

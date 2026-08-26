@@ -39,8 +39,8 @@ def main():
     grave, chest, tree = carregar('grave'), carregar('chest'), carregar('tree')
     city = carregar('city')
     indice = json.loads((ASSETS / 'city.json').read_text(encoding='utf-8'))['variantes']
-    roof = carregar('roof')
-    ind_roof = json.loads((ASSETS / 'roof.json').read_text(encoding='utf-8'))['cores']
+    sets_img = carregar('lpc-sets')
+    ind_sets = json.loads((ASSETS / 'lpc-sets.json').read_text(encoding='utf-8'))['conjuntos']
     humanos = {n: carregar(n) for n in ('guard', 'princess', 'villager',
                                     'guard_a', 'guard_b', 'villager_a', 'villager_b',
                                     'villager_c', 'princess_a', 'princess_b', 'princess_c')}
@@ -60,6 +60,22 @@ def main():
             dr.rectangle([px + col * T // 2 + desl + 1, py + lin * T // 2 + 1,
                           px + col * T // 2 + desl + T // 2 - 2, py + lin * T // 2 + T // 2 - 2], fill=c)
 
+    def fatia9(cx, cy, w, h):
+        v = 'n' if cy == 0 else ('s' if cy == h - 1 else '')
+        hh = 'w' if cx == 0 else ('e' if cx == w - 1 else '')
+        return (v + hh) or 'meio'
+
+    def peca_set(chave, fatia, cx, cy):
+        c = ind_sets.get(chave)
+        if not c:
+            return False
+        p = c['fatias'].get(fatia)
+        if not p:
+            return False
+        sx, sy, sw, sh = p
+        img.alpha_composite(sets_img.crop((sx, sy, sx + sw, sy + sh)), (cx, cy))
+        return True
+
     # ---- chão ----
     for j, linha in enumerate(d['tiles']):
         for i, t in enumerate(linha):
@@ -78,7 +94,8 @@ def main():
             if chao == 5:
                 por(dirt2, px, py, (v % 3) * T, 160)
             elif chao == 18:
-                calcamento(px, py, x, y, v)
+                if not peca_set('piso:cinza', 'meio', px, py):
+                    calcamento(px, py, x, y, v)
             elif chao in (1, 12):
                 por(dirt, px, py, (v % 3) * T, 160)
             else:
@@ -114,13 +131,6 @@ def main():
             return
         sx, sy, sw, sh = p
         img.alpha_composite(city.crop((sx, sy, sx + sw, sy + sh)), (cx, cy))
-
-    def peca_telhado(cor, nome, cx, cy):
-        p = ind_roof.get(cor, ind_roof['telha']).get(nome)
-        if not p:
-            return
-        sx, sy, sw, sh = p
-        img.alpha_composite(roof.crop((sx, sy, sx + sw, sy + sh)), (cx, cy))
 
 
     CORES = {
@@ -160,19 +170,11 @@ def main():
         elif tipo == 'predio':
             b = a
             linhas_telhado = b['h'] - 2
+            chave_telhado = 'telhado:' + b.get('telhado', 'vermelho')
             for cy in range(linhas_telhado):
                 for cxi in range(b['w']):
-                    esq, dire = cxi == 0, cxi == b['w'] - 1
-                    ultima = cy == linhas_telhado - 1
-                    if ultima and esq: nome = 'canto_esq'
-                    elif ultima and dire: nome = 'canto_dir'
-                    elif ultima: nome = 'beira_baixo'
-                    elif cy == 0: nome = 'cume'
-                    elif esq: nome = 'beira_esq'
-                    elif dire: nome = 'beira_dir'
-                    else: nome = 'campo'
-                    peca_telhado(b.get('telhado', 'telha'), nome,
-                                 (b['x'] - x0 + cxi) * T, (b['y'] - y0 + cy) * T)
+                    peca_set(chave_telhado, fatia9(cxi, cy, b['w'], linhas_telhado),
+                             (b['x'] - x0 + cxi) * T, (b['y'] - y0 + cy) * T)
             for cxi in range(b['w']):
                 borda = cxi == 0 or cxi == b['w'] - 1
                 px = (b['x'] - x0 + cxi) * T

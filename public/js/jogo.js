@@ -88,12 +88,14 @@ const SPRITES = ['soldier', 'guard', 'princess', 'villager', 'slime', 'bat', 'sn
   // Variantes vestidas geradas por tools/vestir-npcs.py — o pacote LPC
   // incluído traz só o corpo, sem as camadas de cabelo e roupa.
   'villager_a', 'villager_b', 'villager_c', 'guard_a', 'guard_b', 'soldier_a',
-  'princess_a', 'princess_b', 'princess_c', 'roof'];
+  'princess_a', 'princess_b', 'princess_c', 'lpc-sets'];
 const IMG = {};
 
-// Índices dos atlas gerados: city.png (fachadas) e roof.png (telhados).
+// Índices dos atlas: city.png (portas/janelas recortadas das fachadas) e
+// lpc-sets.png (telhados, calçamento e alvenaria importados dos pacotes LPC
+// como fatias de 9 — ver tools/importar-lpc.py).
 let CITY = null;
-let ROOF = null;
+let SETS = null;
 
 function carregarSprites() {
   const imagens = SPRITES.map((nome) => new Promise((resolve) => {
@@ -108,10 +110,10 @@ function carregarSprites() {
     .then((r) => r.json())
     .then((j) => { CITY = j; })
     .catch(() => { console.warn('city.json ausente: prédios não serão desenhados'); });
-  const telhados = fetch('/assets/roof.json')
+  const telhados = fetch('/assets/lpc-sets.json')
     .then((r) => r.json())
-    .then((j) => { ROOF = j; })
-    .catch(() => { console.warn('roof.json ausente: telhados não serão desenhados'); });
+    .then((j) => { SETS = j; })
+    .catch(() => { console.warn('lpc-sets.json ausente: telhados e calçamento não serão desenhados'); });
   return Promise.all([...imagens, indice, telhados]);
 }
 
@@ -810,7 +812,7 @@ function render(dt) {
       else if (t === 17) chao = 1;
 
       if (chao === 5) ds(IMG.dirt2, (v % 3) * 32, 160, 32, 32, x * TILE, y * TILE);
-      else if (chao === 18) desenharCalcamento(x, y, v);
+      else if (chao === 18) desenharCalcamento(x, y, v);   // usa o piso LPC quando disponível
       else if (chao === 1 || chao === 12) ds(IMG.dirt, (v % 3) * 32, 160, 32, 32, x * TILE, y * TILE);
       else ds(IMG.grass, (v % 3) * 32, 160, 32, 32, x * TILE, y * TILE);
 
@@ -931,13 +933,22 @@ function peca(variante, nome, dx, dy) {
   ds(IMG.city, p[0], p[1], p[2], p[3], dx, dy, p[2], p[3]);
 }
 
-// Desenha uma peça do atlas de telhados.
-function pecaTelhado(cor, nome, dx, dy) {
-  if (!ROOF) return;
-  const c = ROOF.cores[cor] || ROOF.cores.telha;
-  const p = c && c[nome];
-  if (!p) return;
-  ds(IMG.roof, p[0], p[1], p[2], p[3], dx, dy, p[2], p[3]);
+// Qual das nove fatias usar para a célula (cx,cy) de um retângulo w x h.
+function fatia9(cx, cy, w, h) {
+  const v = cy === 0 ? 'n' : (cy === h - 1 ? 's' : '');
+  const hh = cx === 0 ? 'w' : (cx === w - 1 ? 'e' : '');
+  return (v + hh) || 'meio';
+}
+
+// Desenha uma fatia de um conjunto importado ("telhado:vermelho",
+// "piso:cinza", "parede:palha"...).
+function pecaSet(chave, fatia, dx, dy) {
+  if (!SETS) return false;
+  const c = SETS.conjuntos[chave];
+  const p = c && c.fatias[fatia];
+  if (!p) return false;
+  ds(IMG['lpc-sets'], p[0], p[1], p[2], p[3], dx, dy, p[2], p[3]);
+  return true;
 }
 
 // Um prédio é montado de cima para baixo:
@@ -955,19 +966,11 @@ function desenharPredio(b) {
   const v = b.v;
   const linhasTelhado = b.h - 2;
 
+  const chaveTelhado = `telhado:${b.telhado}`;
   for (let cy = 0; cy < linhasTelhado; cy++) {
     for (let cx = 0; cx < b.w; cx++) {
-      const esq = cx === 0, dir = cx === b.w - 1;
-      const ultima = cy === linhasTelhado - 1;
-      let nome;
-      if (ultima && esq) nome = 'canto_esq';
-      else if (ultima && dir) nome = 'canto_dir';
-      else if (ultima) nome = 'beira_baixo';
-      else if (cy === 0) nome = 'cume';
-      else if (esq) nome = 'beira_esq';
-      else if (dir) nome = 'beira_dir';
-      else nome = 'campo';
-      pecaTelhado(b.telhado, nome, (b.x + cx) * TILE, (b.y + cy) * TILE);
+      pecaSet(chaveTelhado, fatia9(cx, cy, b.w, linhasTelhado),
+        (b.x + cx) * TILE, (b.y + cy) * TILE);
     }
   }
 
@@ -1210,6 +1213,11 @@ function desenharProp(p) {
 // Calçamento: paralelepípedos desenhados com deslocamento determinístico,
 // para a cidade não ter o mesmo chão de terra do campo.
 function desenharCalcamento(x, y, v) {
+  // Calçamento de verdade, importado do pacote LPC. O desenho procedural
+  // abaixo era o remendo de quando não havia arte; fica como reserva para
+  // o caso de o atlas não carregar.
+  if (pecaSet('piso:cinza', 'meio', x * TILE, y * TILE)) return;
+
   const bx = (x * TILE - cam.x) * ZOOM, by = (y * TILE - cam.y) * ZOOM;
   const S = TILE * ZOOM;
   ctx.fillStyle = '#565049';
