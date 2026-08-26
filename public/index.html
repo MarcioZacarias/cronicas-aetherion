@@ -7,7 +7,7 @@
 <meta name="description" content="MMORPG 2D de mundo aberto. Escolha entre Cavaleiro, Mago, Arqueiro e Sacerdote, atravesse Aurora e Valedorn e enfrente o que dorme nas Catacumbas. Joga direto no navegador.">
 <meta property="og:title" content="Crônicas de Aetherion">
 <meta property="og:description" content="MMORPG 2D de mundo aberto, direto no navegador.">
-<meta property="og:image" content="/assets/site/hero.png">
+<meta property="og:image" content="/assets/site/hero.jpg">
 <link rel="stylesheet" href="/css/ui.css">
 <style>
   /* ---------- topo ---------- */
@@ -26,13 +26,10 @@
   .capa::after {
     content: ''; position: absolute; inset: 0; z-index: -1;
     background-image: linear-gradient(to bottom, rgba(6,8,15,.15) 0%, rgba(6,8,15,.55) 55%, #0d0b08 100%),
-                      url('/assets/site/hero.png');
+                      url('/assets/site/hero.jpg');
     background-size: cover; background-position: center 30%;
   }
   .marca-grande { width: min(78vw, 460px); margin: 0 auto 10px; display: block; filter: drop-shadow(0 8px 26px rgba(0,0,0,.75)); }
-  /* O logo veio com fundo branco; multiply o funde no fundo escuro sem
-     precisar de uma versão recortada. */
-  .marca-grande.recorta { mix-blend-mode: screen; }
   .capa h1 { font-size: clamp(20px, 4vw, 30px); color: #eadfae; letter-spacing: 2px; text-shadow: 0 3px 18px #000; }
   .capa .chamada { color: #cfe0ff; font-size: clamp(14px, 2.4vw, 18px); max-width: 46ch; margin: 14px auto 0; text-shadow: 0 2px 10px #000; }
   .botoes { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 30px; }
@@ -68,7 +65,7 @@
 <body>
 
 <header class="capa">
-  <img class="marca-grande recorta" src="/assets/site/logo.png" alt="Crônicas de Aetherion">
+  <img class="marca-grande" src="/assets/site/logo.png" alt="Crônicas de Aetherion">
   <p class="chamada">
     Um mundo aberto onde ninguém espera por você. Escolha seu caminho, cruze o mar
     até Valedorn e descubra o que a Irmandade guardou sob as catacumbas.
@@ -81,7 +78,7 @@
 </header>
 
 <section class="faixa">
-  <div class="arte" style="background-image:url('/assets/site/cidade.png')"></div>
+  <div class="arte" style="background-image:url('/assets/site/cidade.jpg')"></div>
   <div class="dentro">
     <div class="caixa-texto">
       <h2>Cidades vivas</h2>
@@ -96,7 +93,7 @@
 </section>
 
 <section class="faixa direita">
-  <div class="arte" style="background-image:url('/assets/site/batalha.png')"></div>
+  <div class="arte" style="background-image:url('/assets/site/batalha.jpg')"></div>
   <div class="dentro">
     <div class="caixa-texto">
       <h2>O que dorme lá embaixo</h2>

@@ -200,8 +200,8 @@ export const NPCS = [
   { id: 'seraf', name: 'Serafina — Sacerdotisa do Templo', img: 'princess_a', map: 'vale', x: 33, y: 12 },
   { id: 'jorun', name: 'Jorun — Mestre das Carruagens', img: 'guard_b', map: 'vale', x: 36, y: 37 },
   { id: 'lyra', name: 'Capitã Lyra — Guarda de Ardentia', img: 'guard_a', map: 'vale', x: 30, y: 37 },
-  { id: 'tomas', name: 'Irmão Tomas — Irmandade', img: 'villager_b', map: 'vale', x: 26, y: 22 },
-  { id: 'aldous', name: 'Velho Aldous — Mendigo', img: 'villager_c', map: 'vale', x: 26, y: 26 },
+  { id: 'tomas', name: 'Irmão Tomas — Irmandade', img: 'villager_b', map: 'vale', x: 28, y: 21 },
+  { id: 'aldous', name: 'Velho Aldous — Mendigo', img: 'villager_c', map: 'vale', x: 28, y: 27 },
   { id: 'nilo', name: 'Nilo — Garoto Curioso', img: 'villager_b', map: 'vale', x: 33, y: 25 },
   { id: 'rosa', name: 'Rosa — Estalajadeira', img: 'princess', map: 'vale', x: 35, y: 47 },
 ];

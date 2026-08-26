@@ -47,6 +47,17 @@ export const VARIANTES_PREDIO = ['house', 'house2', 'chapel'];
 // dois sobrados coladas, que é como um quarteirão europeu realmente é.
 // ---------------------------------------------------------
 export const MODULO_W = 5;
+
+// Tamanho REAL de cada peça de mobiliário, em tiles (largura x altura),
+// espelhando public/assets/lpc-props.json. O gerador precisa saber disso:
+// um prop de 3x4 marcado como 1 tile de colisão pode ser colocado a cada
+// 3 tiles e os desenhos se empilham uns sobre os outros.
+export const TAMANHO_PROP = {
+  lampiao: [1, 2], lampiao2: [1, 2], banca: [3, 4], banca2: [4, 3],
+  banco: [2, 1], banco2: [2, 1], carroca: [3, 2], fonte: [2, 2],
+  arvorinha: [1, 2], arbusto: [1, 1], canteiro: [2, 1], canteiro2: [2, 1],
+  urna: [1, 1], barril: [1, 1], engradado: [1, 1], poco: [1, 1],
+};
 export const PREDIO_H = 6;
 
 // Nomeados pela cor MEDIDA no atlas (public/assets/lpc-telhados.json),
@@ -150,11 +161,34 @@ export function buildWorld() {
   function objeto(m, tipo, x, y, { bloqueia = true, sobrePedra = false } = {}) {
     if (!dentro(m, x, y)) return false;
     if (!sobrePedra && BLOCK.has(m.tiles[y][x])) return false;
-    // Guarda o chão que havia ali: o tile vira 19 (objeto) para bloquear a
-    // passagem, e sem isso o cliente não saberia se desenhar grama ou
-    // calçamento sob o barril.
+
+    // A peça é ancorada pela base e cresce para cima e para a direita.
+    // Reservamos essa área inteira: sem isso dois props vizinhos ocupam
+    // 1 tile de colisão cada e os desenhos se sobrepõem.
+    const [pw, ph] = TAMANHO_PROP[tipo] || [1, 1];
+    if (!sobrePedra) {
+      for (let yy = y - (ph - 1); yy <= y; yy++) {
+        for (let xx = x; xx < x + pw; xx++) {
+          if (!dentro(m, xx, yy) || BLOCK.has(m.tiles[yy][xx])) return false;
+        }
+      }
+    }
+
     m.props.push({ t: tipo, x, y, chao: m.tiles[y][x] });
-    if (bloqueia && !sobrePedra) m.tiles[y][x] = 19;
+    if (bloqueia && !sobrePedra) {
+      // A área INTEIRA vira tile 19. Marcar só a base deixaria um segundo
+      // prop encaixar a base dele dentro do corpo do primeiro — foi assim
+      // que o mercado virou uma grade de barracas empilhadas.
+      for (let yy = y - (ph - 1); yy <= y; yy++) {
+        for (let xx = x; xx < x + pw; xx++) {
+          if (!dentro(m, xx, yy)) continue;
+          if (xx !== x || yy !== y) {
+            m.props.push({ t: '_vazio', x: xx, y: yy, chao: m.tiles[yy][xx] });
+          }
+          m.tiles[yy][xx] = 19;
+        }
+      }
+    }
     return true;
   }
 
@@ -381,27 +415,26 @@ export function buildWorld() {
 
     // ===== Mobiliário urbano =====
     objetoGrande(m, 'fonte', 28, 23, 2, 2);
-    for (const x of [24, 34]) for (const y of [21, 27]) objeto(m, 'lampiao', x, y);
-    // Canteiros de grama quebram o cinza do calçamento.
-    for (const [gx, gy] of [[22, 21], [23, 21], [22, 27], [23, 27], [35, 21], [36, 21], [35, 27], [36, 27]]) {
-      if (m.tiles[gy][gx] === 18) m.tiles[gy][gx] = 0;
-    }
+    // Sem canteiros de grama: uma ilha de grama de 1 tile cercada de
+    // calçamento não tem transição possível e vira um quadrado verde
+    // chapado. Quem quebra o cinza aqui são as árvores e os canteiros.
+    objeto(m, 'lampiao', 23, 21); objeto(m, 'lampiao', 35, 21);
+    objeto(m, 'lampiao', 23, 27); objeto(m, 'lampiao', 35, 27);
     objeto(m, 'arvorinha', 22, 22); objeto(m, 'arvorinha', 36, 22);
     objeto(m, 'arvorinha', 22, 26); objeto(m, 'arvorinha', 36, 26);
-    for (let i = 0; i < 4; i++) objeto(m, 'banca', 39 + i * 3, 22);
-    for (let i = 0; i < 3; i++) objeto(m, 'banca', 40 + i * 3, 26);
-    objeto(m, 'carroca', 43, 24);
-    objeto(m, 'engradado', 39, 24); objeto(m, 'barril', 40, 24);
+    // A banca ocupa 3x4 tiles: espaçada de 3 em 3 elas se empilhavam.
+    for (let i = 0; i < 2; i++) objeto(m, 'banca', 39 + i * 4, 26);
+    objeto(m, 'carroca', 44, 27);
+    objeto(m, 'engradado', 39, 27); objeto(m, 'barril', 40, 27);
     objeto(m, 'engradado', 47, 24); objeto(m, 'barril', 47, 20);
-    objeto(m, 'barril', 39, 28); objeto(m, 'engradado', 47, 28);
     // Lampiões ao longo da avenida.
-    for (let y = 7; y <= 35; y += 7) { objeto(m, 'lampiao', 27, y); objeto(m, 'lampiao', 32, y); }
+    // Lampião só nos cruzamentos da avenida: de 7 em 7 eles ficavam
+    // encostados nos da praça e viravam uma fileira contínua.
+    for (const y of [12, 20, 30]) { objeto(m, 'lampiao', 27, y); objeto(m, 'lampiao', 32, y); }
     // A praça é grande: sem mobiliário no miolo ela vira um descampado de
     // pedra. Bancos e postes dão escala e caminho para o olho.
     for (const x of [25, 33]) { objeto(m, 'banco', x, 22); objeto(m, 'banco', x, 26); }
-    objeto(m, 'banco', 27, 20); objeto(m, 'banco', 30, 20);
     objeto(m, 'banco', 27, 28); objeto(m, 'banco', 30, 28);
-    objeto(m, 'lampiao', 26, 24); objeto(m, 'lampiao', 31, 24);
     objeto(m, 'canteiro', 25, 24); objeto(m, 'canteiro2', 33, 24);
 
     // ===== Fora das muralhas =====
