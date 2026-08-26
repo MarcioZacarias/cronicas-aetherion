@@ -215,3 +215,17 @@ ArMM1998
 CC0
 https://opengameart.org/content/zelda-like-tilesets-and-sprites
 
+
+==============================================================================
+ORIGEM: Houses Pack — Szadi art
+USADO EM: Todos os prédios do jogo (public/assets/casas.png)
+==============================================================================
+
+Artwork created by Szadi art.
+
+Licença: domínio público, livre para uso pessoal ou comercial.
+Crédito não é exigido, mas é apreciado. Permitido editar; proibido
+revender o pacote de assets.
+
+https://szadiart.itch.io
+

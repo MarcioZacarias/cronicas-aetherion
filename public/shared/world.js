@@ -63,12 +63,37 @@ export const PREDIO_H = 6;
 // Nomeados pela cor MEDIDA no atlas (public/assets/lpc-telhados.json),
 // não pelo rótulo do pacote — no roofs.tsx original "Roof_Flat_Red" é
 // azul e "Roof_Flat_Green" é vermelho. Ver tools/importar-lpc.py.
-// Telhado gerado por tools/gerar-telhados.py: fiadas de telha costuráveis,
-// com cumeeira e água de trás mais escura. Foi a saída depois de os kits
-// prontos do LPC se mostrarem não-costuráveis (bordas são tacaniças de
-// canto específico) e os recortes fixos virem com lixo das peças vizinhas.
-export const CORES_TELHADO = ['telha', 'turquesa', 'ardosia', 'madeira'];
-export const CORES_PAREDE = ['palha', 'marrom', 'cinza', 'branco', 'cinza2', 'marrom2'];
+// Casas prontas do Houses_Pack (Szadi art, domínio público), importadas
+// por tools/importar-casas.py. São PRÉDIOS INTEIROS vistos de cima, com
+// telhado, chaminé, beiral e fachada — não peças de montagem.
+//
+// Foi o que resolveu depois de cinco tentativas de compor prédio a partir
+// dos kits do LPC: aquela arte foi desenhada para montagem manual no
+// Tiled, e nem costurar bordas nem recortar blocos fixos funciona.
+//
+// O tamanho aqui é lei: o prédio ocupa exatamente o que a imagem ocupa.
+export const CASAS = {
+  telhado_roxo: [6, 4],
+  telhado_cinza: [6, 4],
+  telhado_vermelho: [6, 4],
+  solar_roxo: [8, 8],
+  solar_cinza: [8, 8],
+  solar_vermelho: [8, 8],
+  chale_roxo: [6, 7],
+  chale_cinza: [6, 7],
+  chale_vermelho: [6, 7]
+};
+
+// Cada estabelecimento ganha um porte próprio — o solar é o maior, então
+// vai para banco e templo; o chalé, com frontão, para as lojas.
+// O solar tem 8 de altura e só cabe no lote do templo; na fileira do
+// comércio ele avançava sobre a linha das portas, onde ficam os NPCs.
+export const CASA_POR_TIPO = {
+  templo: 'solar_roxo',
+  banco: 'chale_cinza', prefeitura: 'chale_vermelho', biblioteca: 'chale_roxo',
+  armaria: 'telhado_vermelho', botica: 'telhado_cinza',
+  taverna: 'telhado_roxo', estacao: 'telhado_cinza',
+};
 
 // Cada tipo de estabelecimento tem telhado próprio: dá para achar o banco
 // de longe, sem precisar ler a placa.
@@ -121,6 +146,20 @@ export function buildWorld() {
     }
   }
 
+  // Casa cujo tamanho mais se aproxima do pedido. Largura pesa o dobro:
+  // um quarteirão erra mais feio na horizontal, onde os prédios se
+  // encostam, do que na vertical.
+  function casaProxima(w, h) {
+    const nomes = Object.keys(CASAS);
+    let melhor = nomes[0], dist = Infinity;
+    for (const nome of nomes) {
+      const [cw, ch] = CASAS[nome];
+      const d = Math.abs(cw - w) * 2 + Math.abs(ch - h);
+      if (d < dist || (d === dist && rng() < 0.5)) { melhor = nome; dist = d; }
+    }
+    return melhor;
+  }
+
   // ---------------------------------------------------------
   // Prédios
   //
@@ -129,11 +168,10 @@ export function buildWorld() {
   // peças do atlas; aqui só registramos a forma e marcamos a colisão.
   // ---------------------------------------------------------
   function predio(m, x, y, w, h, variante, opts = {}) {
-    // Largura livre de novo: o telhado voltou a ser costurável, então não
-    // há mais a amarra do módulo de 5 que a peça pronta do LPC impunha.
-    // Só o mínimo: 3 de largura e 4 de altura (2 de telhado + 2 de parede).
-    w = Math.max(3, w);
-    h = Math.max(4, h);
+    // A imagem da casa manda no tamanho: escolhemos a que mais se aproxima
+    // do pedido e o prédio passa a ocupar exatamente o que ela ocupa.
+    const casa = opts.casa || CASA_POR_TIPO[opts.tipo] || casaProxima(w, h);
+    [w, h] = CASAS[casa];
     if (x < 0 || y < 0 || x + w > m.w || y + h > m.h) return null;
     for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) {
       if (m.tiles[yy][xx] === 17) return null;        // não empilha em outro prédio
@@ -150,18 +188,17 @@ export function buildWorld() {
       // separa "uma casa qualquer" de "a armaria" sem precisar de arte nova.
       tipo: opts.tipo || null,
       nome: opts.nome || null,
-      telhado: opts.telhado
-        || TELHADO_POR_TIPO[opts.tipo]
-        || escolha(CORES_TELHADO),
-      parede: opts.parede
-        || PAREDE_POR_TIPO[opts.tipo]
-        || escolha(CORES_PAREDE),
+      casa,
     };
     // Janelas na faixa da base, em toda coluna que não é porta nem quina.
     for (let i = 1; i < w - 1; i++) if (i !== porta && rng() < 0.75) b.janelas.push(i);
     // No andar de cima, alinhadas com as de baixo — inclusive sobre a porta,
     // que é como uma fachada de verdade se organiza.
     for (let i = 1; i < w - 1; i++) if (rng() < 0.8) b.altas.push(i);
+    // Guarda o chão do lote ANTES de marcá-lo como prédio. O sprite da
+    // casa tem margem transparente nas laterais, e sem isso aparecia um
+    // retângulo de terra em volta de cada construção.
+    b.chao = m.tiles[y][x];
     preencher(m, x, y, x + w - 1, y + h - 1, 17);
     m.buildings.push(b);
     return b;
@@ -269,8 +306,11 @@ export function buildWorld() {
     while (x + minW - 1 <= x1) {
       const w = Math.min(ri(minW, maxW), x1 - x + 1);
       if (w < minW) break;
-      const b = predio(m, x, baseY - PREDIO_H + 1, w, PREDIO_H, opts.variante);
-      if (b) { feitos.push(b); x += w + ri(1, 2); } // ruela entre prédios
+      // Altura sorteada entre as das casas disponíveis; predio() encaixa
+      // na que mais se aproxima e devolve o tamanho real.
+      const alt = escolha([4, 4, 4, 7]);   // sem solar: 8 de altura invade a rua
+      const b = predio(m, x, baseY - alt + 1, w, alt, opts.variante);
+      if (b) { feitos.push(b); x += b.w + ri(1, 2); } // ruela entre prédios
       else x += 1; // esbarrou em rua/praça: anda um tile e tenta de novo
     }
     return feitos;
@@ -309,15 +349,18 @@ export function buildWorld() {
 
     // Lumera é vila, não cidade: quatro serviços essenciais e nada mais.
     // Quem começa o jogo precisa achar tudo sem procurar.
+    // Lumera é vila: casas PEQUENAS, fixadas explicitamente. Deixar o tipo
+    // escolher traria o chalé de 7 de altura e o solar de 8, que engolem a
+    // rua onde Toren e Mira ficam.
     const SERVICOS_LUMERA = [
-      [6, 14, 'house', 'armaria', 'Forja de Toren'],
-      [17, 14, 'house2', 'botica', 'Botica de Mira'],
-      [6, 23, 'chapel', 'templo', 'Santuário de Lumera'],
-      [17, 23, 'house', 'estacao', 'Ponto da Carruagem'],
+      [6, 16, 'telhado_vermelho', 'armaria', 'Forja de Toren'],
+      [16, 16, 'telhado_cinza', 'botica', 'Botica de Mira'],
+      [6, 24, 'telhado_roxo', 'templo', 'Santuário de Lumera'],
+      [16, 24, 'telhado_vermelho', 'estacao', 'Ponto da Carruagem'],
     ];
-    for (const [bx, by, variante, tipo, nome] of SERVICOS_LUMERA) {
-      reservar(m, bx, by, bx + MODULO_W - 1, by + PREDIO_H - 1);
-      predio(m, bx, by, MODULO_W, PREDIO_H, variante, { emReserva: true, tipo, nome });
+    for (const [bx, by, casa, tipo, nome] of SERVICOS_LUMERA) {
+      reservar(m, bx, by, bx + 5, by + 3);
+      predio(m, bx, by, 6, 4, null, { emReserva: true, tipo, nome, casa });
     }
 
     // Props de 2 tiles (banca) precisam de folga: eles ocupam 1 tile de
@@ -377,9 +420,9 @@ export function buildWorld() {
     reservar(m, 38, 20, 48, 28, 18);
     // ===== Templo, no fim da avenida =====
     // É o ponto de renascimento da cidade: quem morre acorda aqui.
-    reservar(m, 24, 5, 35, 11);
-    predio(m, 25, 5, 2 * MODULO_W, PREDIO_H, 'chapel',
-      { porta: 5, emReserva: true, tipo: 'templo', nome: 'Templo de Ardentia' });
+    reservar(m, 24, 4, 35, 12);
+    predio(m, 26, 5, 8, 8, 'chapel',
+      { emReserva: true, tipo: 'templo', nome: 'Templo de Ardentia' });
     objeto(m, 'lampiao', 24, 11); objeto(m, 'lampiao', 35, 11);
     objeto(m, 'braseiro', 28, 12); objeto(m, 'braseiro', 31, 12);
 
@@ -396,16 +439,17 @@ export function buildWorld() {
       [44, 1, 'chapel', 'taverna', 'Taverna do Corvo'],
     ];
     for (const [bx, mods, variante, tipo, nome] of COMERCIO) {
-      const bw = mods * MODULO_W;
-      reservar(m, bx, 14, bx + bw - 1, 19);
-      predio(m, bx, 14, bw, PREDIO_H, variante, { emReserva: true, tipo, nome });
-      // Lampião ao lado da porta, na calçada em frente.
+      reservar(m, bx, 12, bx + 6, 19);
+      // Ancorado pela BASE em y=19: as casas têm alturas diferentes (4 ou
+      // 7) e alinhá-las pelo topo deixaria umas soltas no meio do lote.
+      const alt = CASAS[CASA_POR_TIPO[tipo]][1];
+      predio(m, bx, 20 - alt, 6, alt, variante, { emReserva: true, tipo, nome });
       objeto(m, 'lampiao', bx - 1, 20);
     }
 
     // ===== Estação das carruagens, perto do portão sul =====
-    reservar(m, 33, 31, 37, 36);
-    predio(m, 33, 31, MODULO_W, PREDIO_H, 'house',
+    reservar(m, 33, 32, 39, 36);
+    predio(m, 33, 33, 6, 4, 'house',
       { emReserva: true, tipo: 'estacao', nome: 'Estação das Carruagens' });
     // Nada de mobiliário na faixa y=37: ela é um corredor de um tile entre
     // a estação e a muralha, e dois barris ali isolam o cocheiro do resto
@@ -416,14 +460,10 @@ export function buildWorld() {
     // Quatro fileiras de norte a sul; o que esbarra em rua ou praça é
     // pulado automaticamente pelo quarteirao(). A fileira sul tem base em
     // 36 porque a linha 37 é a faixa livre junto à muralha.
-    for (const baseY of [11, 19, 29, 36]) {
+    for (const baseY of [11, 19, 29, 37]) {
       quarteirao(m, MX0 + 2, 27, baseY);
       quarteirao(m, 32, MX1 - 2, baseY);
     }
-    // Bairro sul: mais uma fileira encostada na travessa, para o quarteirão
-    // entre a praça e a muralha não ficar vazio.
-    quarteirao(m, MX0 + 2, 21, 29, { minW: 4, maxW: 6 });
-    quarteirao(m, 32, MX1 - 2, 36, { minW: 4, maxW: 6 });
 
     // ===== Mobiliário urbano =====
     objetoGrande(m, 'fonte', 28, 23, 2, 2);

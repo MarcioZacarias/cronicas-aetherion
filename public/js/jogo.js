@@ -88,7 +88,7 @@ const SPRITES = ['soldier', 'guard', 'princess', 'villager', 'slime', 'bat', 'sn
   // Variantes vestidas geradas por tools/vestir-npcs.py — o pacote LPC
   // incluído traz só o corpo, sem as camadas de cabelo e roupa.
   'villager_a', 'villager_b', 'villager_c', 'guard_a', 'guard_b', 'soldier_a',
-  'princess_a', 'princess_b', 'princess_c', 'lpc-sets', 'roof', 'lpc-props'];
+  'princess_a', 'princess_b', 'princess_c', 'lpc-sets', 'casas', 'lpc-props'];
 const IMG = {};
 
 // Índices dos atlas: city.png (portas/janelas recortadas das fachadas) e
@@ -116,10 +116,10 @@ function carregarSprites() {
     .then((r) => r.json())
     .then((j) => { SETS = j; })
     .catch(() => { console.warn('lpc-sets.json ausente: telhados e calçamento não serão desenhados'); });
-  const catTelhados = fetch('/assets/roof.json')
+  const catTelhados = fetch('/assets/casas.json')
     .then((r) => r.json())
     .then((j) => { TELHADOS = j; })
-    .catch(() => { console.warn('roof.json ausente: telhados não serão desenhados'); });
+    .catch(() => { console.warn('casas.json ausente: prédios não serão desenhados'); });
   const catProps = fetch('/assets/lpc-props.json')
     .then((r) => r.json())
     .then((j) => { PROPS = j; })
@@ -424,6 +424,21 @@ function indiceProps() {
   for (const p of MAPS[mapaAtual].props || []) propIndex.set(`${p.x},${p.y}`, p);
   propIndexMapa = mapaAtual;
   return propIndex;
+}
+
+// Chão que havia sob cada lote de prédio. O sprite da casa tem margem
+// transparente, então sem isto aparece um retângulo de terra em volta.
+let chaoPredio = null, chaoPredioMapa = null;
+function indiceChaoPredio() {
+  if (chaoPredioMapa === mapaAtual && chaoPredio) return chaoPredio;
+  chaoPredio = new Map();
+  for (const b of MAPS[mapaAtual].buildings || []) {
+    for (let y = b.y; y < b.y + b.h; y++) {
+      for (let x = b.x; x < b.x + b.w; x++) chaoPredio.set(`${x},${y}`, b.chao ?? 1);
+    }
+  }
+  chaoPredioMapa = mapaAtual;
+  return chaoPredio;
 }
 
 canvas.addEventListener('pointerdown', (ev) => {
@@ -819,7 +834,7 @@ function render(dt) {
       // pela fachada, então basta um chão neutro por baixo.
       let chao = t;
       if (t === 19) chao = indiceProps().get(`${x},${y}`)?.chao ?? 0;
-      else if (t === 17) chao = 1;
+      else if (t === 17) chao = indiceChaoPredio().get(`${x},${y}`) ?? 1;
 
       if (chao === 18) {
         desenharCalcamento(x, y, v);
@@ -1044,72 +1059,23 @@ function pecaSet(chave, fatia, dx, dy) {
 // a pedra, ela virava uma tarja que não combinava com nenhum dos dois. O
 // beiral do próprio telhado já faz a transição.
 function desenharPredio(b) {
-  // Telhado costurável em cima, parede sólida embaixo, porta e janelas por
-  // cima dela. Tudo em 9 fatias ou preenchimento, então compõe em qualquer
-  // largura e altura — foi o que resolveu depois de duas tentativas com
-  // peças prontas do LPC, que não são costuráveis e vinham com lixo das
-  // peças vizinhas da folha.
-  const linhas = b.h - 2;
-  const cumeeira = Math.max(0, Math.floor((linhas - 1) / 2));
+  // Uma imagem só, do Houses_Pack: prédio inteiro visto de cima, com
+  // telhado, chaminé, beiral e fachada, desenhado por artista. Compor
+  // prédio a partir de peças falhou cinco vezes porque a arte do LPC é
+  // kit de montagem manual — nem costurar bordas nem recortar blocos.
+  if (!TELHADOS) return;
+  const casa = TELHADOS.casas[b.casa];
+  if (!casa) return;
 
-  // Sombra projetada no chão, deslocada para baixo e para a direita. Sem
-  // ela o prédio não tem volume: fica um retângulo de textura colado no
-  // calçamento, que era exatamente a queixa.
-  ctx.fillStyle = 'rgba(0,0,0,.28)';
+  // Sombra no chão antes da casa, para ela assentar em vez de flutuar.
+  ctx.fillStyle = 'rgba(0,0,0,.25)';
   ctx.fillRect(
-    (b.x * TILE + 6 - cam.x) * ZOOM,
-    ((b.y + b.h) * TILE - 10 - cam.y) * ZOOM,
-    (b.w * TILE + 6) * ZOOM, 12 * ZOOM);
+    (b.x * TILE + 8 - cam.x) * ZOOM,
+    ((b.y + b.h) * TILE - 8 - cam.y) * ZOOM,
+    (b.w * TILE - 4) * ZOOM, 10 * ZOOM);
 
-  if (TELHADOS) {
-    const cor = TELHADOS.cores[b.telhado] || TELHADOS.cores.telha;
-    // O telhado AVANÇA um tile para cada lado da parede. É esse beiral que
-    // dá silhueta; alinhado com a parede, o prédio vira um bloco chapado.
-    const larg = b.w + 2;
-    for (let cy = 0; cy < linhas; cy++) {
-      for (let cxi = 0; cxi < larg; cxi++) {
-        const cx = cxi - 1;
-        const esq = cxi === 0, dir = cxi === larg - 1, baixo = cy === linhas - 1;
-        let nome;
-        if (baixo && esq) nome = 'canto_esq';
-        else if (baixo && dir) nome = 'canto_dir';
-        else if (baixo) nome = 'beira_baixo';
-        else if (cy === cumeeira) nome = 'cume';
-        else if (esq) nome = 'beira_esq';
-        else if (dir) nome = 'beira_dir';
-        else nome = cy < cumeeira ? 'campo_topo' : 'campo';
-        const p = cor[nome];
-        if (p) ds(IMG.roof, p[0], p[1], p[2], p[3], (b.x + cx) * TILE, (b.y + cy) * TILE, p[2], p[3]);
-      }
-    }
-  }
-
-  // Parede: só o PREENCHIMENTO do conjunto. As nove fatias do tijolo LPC
-  // são feitas para transicionar com outro terreno, e soltas deixam a
-  // parede com a borda esfarrapada.
-  const paredeY = b.y + b.h - 2;
-  for (let cy = 0; cy < 2; cy++) {
-    for (let cx = 0; cx < b.w; cx++) {
-      pecaSet(`parede:${b.parede || 'palha'}`, 'meio',
-        (b.x + cx) * TILE, (paredeY + cy) * TILE);
-    }
-  }
-
-  if (PROPS) {
-    const porta = PROPS.props.porta;
-    if (porta) {
-      ds(IMG['lpc-props'], porta.x, porta.y, porta.w, porta.h,
-        (b.x + b.porta) * TILE, paredeY * TILE, porta.w, porta.h);
-    }
-    const jan = PROPS.props.janela;
-    if (jan) {
-      for (const cx of b.janelas) {
-        if (cx === b.porta) continue;
-        ds(IMG['lpc-props'], jan.x, jan.y, jan.w, jan.h,
-          (b.x + cx) * TILE, (paredeY + 1) * TILE, jan.w, jan.h);
-      }
-    }
-  }
+  ds(IMG.casas, casa.x, casa.y, casa.w, casa.h,
+    b.x * TILE, b.y * TILE, casa.w, casa.h);
 
   if (b.tipo) desenharLetreiro(b);
 }

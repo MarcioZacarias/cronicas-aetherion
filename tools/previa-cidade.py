@@ -43,8 +43,8 @@ def main():
     ind_sets = json.loads((ASSETS / 'lpc-sets.json').read_text(encoding='utf-8'))['conjuntos']
     props_img = carregar('lpc-props')
     ind_props = json.loads((ASSETS / 'lpc-props.json').read_text(encoding='utf-8'))['props']
-    tel_img = carregar('roof')
-    ind_tel = json.loads((ASSETS / 'roof.json').read_text(encoding='utf-8'))['cores']
+    tel_img = carregar('casas')
+    ind_tel = json.loads((ASSETS / 'casas.json').read_text(encoding='utf-8'))['casas']
     humanos = {n: carregar(n) for n in ('guard', 'princess', 'villager',
                                     'guard_a', 'guard_b', 'villager_a', 'villager_b',
                                     'villager_c', 'princess_a', 'princess_b', 'princess_c')}
@@ -125,6 +125,9 @@ def main():
         if t == 19:
             return chao_de_prop.get((x0 + i, y0 + j), 0)
         if t == 17:
+            for b in d['buildings']:
+                if b['x'] <= x0 + i < b['x'] + b['w'] and b['y'] <= y0 + j < b['y'] + b['h']:
+                    return b.get('chao', 1)
             return 1
         return t
 
@@ -138,11 +141,7 @@ def main():
                 por(water, px, py, 0, 160); continue
             if t == 13:
                 por(wall, px, py); continue
-            chao = t
-            if t == 19:
-                chao = chao_de_prop.get((x, y), 0)
-            elif t == 17:
-                chao = 1
+            chao = chao_de(i, j)
             if chao == 18:
                 if not peca_set('piso:cinza', 'meio', px, py):
                     calcamento(px, py, x, y, v)
@@ -222,48 +221,15 @@ def main():
             img.alpha_composite(tree.crop((0, 0, 96, 144)), (i * T - 32, j * T - 112))
         elif tipo == 'predio':
             b = a
-            linhas = b['h'] - 2
-            cumeeira = max(0, (linhas - 1) // 2)
-            cor = ind_tel.get(b.get('telhado')) or ind_tel['telha']
-            sombra = Image.new('RGBA', (b['w'] * T + 6, 12), (0, 0, 0, 72))
-            img.alpha_composite(sombra, ((b['x'] - x0) * T + 6,
-                                         (b['y'] - y0 + b['h']) * T - 10))
-            larg = b['w'] + 2
-            for cy in range(linhas):
-                for cxj in range(larg):
-                    cxi = cxj - 1
-                    esq, dire = cxj == 0, cxj == larg - 1
-                    baixo = cy == linhas - 1
-                    if baixo and esq: nome = 'canto_esq'
-                    elif baixo and dire: nome = 'canto_dir'
-                    elif baixo: nome = 'beira_baixo'
-                    elif cy == cumeeira: nome = 'cume'
-                    elif esq: nome = 'beira_esq'
-                    elif dire: nome = 'beira_dir'
-                    else: nome = 'campo_topo' if cy < cumeeira else 'campo'
-                    pc = cor.get(nome)
-                    if pc:
-                        img.alpha_composite(
-                            tel_img.crop((pc[0], pc[1], pc[0] + pc[2], pc[1] + pc[3])),
-                            ((b['x'] - x0 + cxi) * T, (b['y'] - y0 + cy) * T))
-            parede_y = b['y'] - y0 + b['h'] - 2
-            for cy in range(2):
-                for cxi in range(b['w']):
-                    peca_set('parede:' + b.get('parede', 'palha'), 'meio',
-                             (b['x'] - x0 + cxi) * T, (parede_y + cy) * T)
-            pr = ind_props.get('porta')
-            if pr:
+            casa = ind_tel.get(b.get('casa'))
+            if casa:
+                sombra = Image.new('RGBA', (b['w'] * T - 4, 10), (0, 0, 0, 64))
+                img.alpha_composite(sombra, ((b['x'] - x0) * T + 8,
+                                             (b['y'] - y0 + b['h']) * T - 8))
                 img.alpha_composite(
-                    props_img.crop((pr['x'], pr['y'], pr['x'] + pr['w'], pr['y'] + pr['h'])),
-                    ((b['x'] - x0 + b['porta']) * T, parede_y * T))
-            jn = ind_props.get('janela')
-            if jn:
-                for cxi in b.get('janelas', []):
-                    if cxi == b['porta']:
-                        continue
-                    img.alpha_composite(
-                        props_img.crop((jn['x'], jn['y'], jn['x'] + jn['w'], jn['y'] + jn['h'])),
-                        ((b['x'] - x0 + cxi) * T, (parede_y + 1) * T))
+                    tel_img.crop((casa['x'], casa['y'],
+                                  casa['x'] + casa['w'], casa['y'] + casa['h'])),
+                    ((b['x'] - x0) * T, (b['y'] - y0) * T))
             if b.get('tipo'):
                 letreiro(b)
         elif tipo == 'prop':

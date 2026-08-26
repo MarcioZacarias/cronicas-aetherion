@@ -29,6 +29,21 @@ USADOS = [
      'Calçamento e alvenaria (lpc-sets.png, conjuntos "piso:*" e "parede:*")'),
 ]
 
+# O Houses_Pack não vem dos pacotes LPC e tem licença própria, então entra
+# como texto fixo. Crédito não é exigido, mas é devido: são as casas que o
+# jogo usa em todas as cidades.
+EXTRAS = [
+    ('Houses Pack — Szadi art',
+     'Todos os prédios do jogo (public/assets/casas.png)',
+     """Artwork created by Szadi art.
+
+Licença: domínio público, livre para uso pessoal ou comercial.
+Crédito não é exigido, mas é apreciado. Permitido editar; proibido
+revender o pacote de assets.
+
+https://szadiart.itch.io"""),
+]
+
 CABECALHO = """CRÉDITOS DE ARTE — Crônicas de Aetherion
 ========================================
 
@@ -60,6 +75,16 @@ def main():
         texto = caminho.read_text(encoding='utf-8', errors='replace').strip()
         partes.append('=' * 78)
         partes.append(f'ORIGEM: {rel}')
+        partes.append(f'USADO EM: {para_que}')
+        partes.append('=' * 78)
+        partes.append('')
+        partes.append(texto)
+        partes.append('')
+        partes.append('')
+
+    for titulo, para_que, texto in EXTRAS:
+        partes.append('=' * 78)
+        partes.append(f'ORIGEM: {titulo}')
         partes.append(f'USADO EM: {para_que}')
         partes.append('=' * 78)
         partes.append('')

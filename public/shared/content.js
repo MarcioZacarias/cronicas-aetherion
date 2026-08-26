@@ -197,7 +197,7 @@ export const NPCS = [
   { id: 'sela', name: 'Sela — Boticária', img: 'princess_b', map: 'vale', x: 34, y: 20 },
   { id: 'edmun', name: 'Escrivão Edmun — Prefeitura', img: 'villager_c', map: 'vale', x: 41, y: 20 },
   { id: 'brida', name: 'Brida — Taverneira', img: 'princess', map: 'vale', x: 48, y: 20 },
-  { id: 'seraf', name: 'Serafina — Sacerdotisa do Templo', img: 'princess_a', map: 'vale', x: 33, y: 12 },
+  { id: 'seraf', name: 'Serafina — Sacerdotisa do Templo', img: 'princess_a', map: 'vale', x: 28, y: 13 },
   { id: 'jorun', name: 'Jorun — Mestre das Carruagens', img: 'guard_b', map: 'vale', x: 36, y: 37 },
   { id: 'lyra', name: 'Capitã Lyra — Guarda de Ardentia', img: 'guard_a', map: 'vale', x: 30, y: 37 },
   { id: 'tomas', name: 'Irmão Tomas — Irmandade', img: 'villager_b', map: 'vale', x: 28, y: 21 },
@@ -217,7 +217,7 @@ export const BANCARIOS = ['gorm'];
 // Templos: onde se renasce. Ficam na porta do prédio, não dentro dele.
 export const TEMPLOS = {
   lumera:   { nome: 'Santuário de Lumera',  map: 'over', x: 8,  y: 29 },
-  ardentia: { nome: 'Templo de Ardentia',   map: 'vale', x: 30, y: 12 },
+  ardentia: { nome: 'Templo de Ardentia',   map: 'vale', x: 30, y: 13 },
 };
 
 // Viagem paga. O preço é o que separa "atalho conveniente" de "teleporte

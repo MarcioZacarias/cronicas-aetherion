@@ -13,3 +13,8 @@ Thumbs.db
 # Node
 node_modules/
 npm-debug.log*
+
+# Pacotes de arte de origem: pesados e já redistribuídos pelos autores.
+# O que o jogo usa está extraído em public/assets/.
+tiled/*.zip
+tiled/houses-origem.png
