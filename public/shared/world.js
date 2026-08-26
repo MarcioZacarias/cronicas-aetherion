@@ -63,14 +63,24 @@ export const PREDIO_H = 6;
 // Nomeados pela cor MEDIDA no atlas (public/assets/lpc-telhados.json),
 // não pelo rótulo do pacote — no roofs.tsx original "Roof_Flat_Red" é
 // azul e "Roof_Flat_Green" é vermelho. Ver tools/importar-lpc.py.
-export const CORES_TELHADO = ['ardosia', 'azul', 'verde', 'vinho', 'sepia', 'cinza', 'musgo'];
+// Telhado gerado por tools/gerar-telhados.py: fiadas de telha costuráveis,
+// com cumeeira e água de trás mais escura. Foi a saída depois de os kits
+// prontos do LPC se mostrarem não-costuráveis (bordas são tacaniças de
+// canto específico) e os recortes fixos virem com lixo das peças vizinhas.
+export const CORES_TELHADO = ['telha', 'turquesa', 'ardosia', 'madeira'];
+export const CORES_PAREDE = ['palha', 'marrom', 'cinza', 'branco', 'cinza2', 'marrom2'];
 
 // Cada tipo de estabelecimento tem telhado próprio: dá para achar o banco
 // de longe, sem precisar ler a placa.
 export const TELHADO_POR_TIPO = {
-  banco: 'cinza', prefeitura: 'grafite', templo: 'azul',
-  biblioteca: 'verde', armaria: 'vinho', botica: 'musgo',
-  taverna: 'sepia', estacao: 'sepia',
+  banco: 'ardosia', prefeitura: 'ardosia', templo: 'turquesa',
+  biblioteca: 'turquesa', armaria: 'telha', botica: 'turquesa',
+  taverna: 'madeira', estacao: 'madeira',
+};
+export const PAREDE_POR_TIPO = {
+  banco: 'cinza', prefeitura: 'branco', templo: 'branco',
+  biblioteca: 'palha', armaria: 'marrom', botica: 'palha',
+  taverna: 'marrom2', estacao: 'marrom',
 };
 
 export function buildWorld() {
@@ -119,11 +129,11 @@ export function buildWorld() {
   // peças do atlas; aqui só registramos a forma e marcamos a colisão.
   // ---------------------------------------------------------
   function predio(m, x, y, w, h, variante, opts = {}) {
-    // Largura em módulos de 5 e altura fixa: é o que o telhado inteiro do
-    // LPC exige. Pedidos fora disso são ajustados em vez de recusados,
-    // para uma chamada antiga não sumir com o prédio silenciosamente.
-    w = Math.max(MODULO_W, Math.round(w / MODULO_W) * MODULO_W);
-    h = PREDIO_H;
+    // Largura livre de novo: o telhado voltou a ser costurável, então não
+    // há mais a amarra do módulo de 5 que a peça pronta do LPC impunha.
+    // Só o mínimo: 3 de largura e 4 de altura (2 de telhado + 2 de parede).
+    w = Math.max(3, w);
+    h = Math.max(4, h);
     if (x < 0 || y < 0 || x + w > m.w || y + h > m.h) return null;
     for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) {
       if (m.tiles[yy][xx] === 17) return null;        // não empilha em outro prédio
@@ -143,6 +153,9 @@ export function buildWorld() {
       telhado: opts.telhado
         || TELHADO_POR_TIPO[opts.tipo]
         || escolha(CORES_TELHADO),
+      parede: opts.parede
+        || PAREDE_POR_TIPO[opts.tipo]
+        || escolha(CORES_PAREDE),
     };
     // Janelas na faixa da base, em toda coluna que não é porta nem quina.
     for (let i = 1; i < w - 1; i++) if (i !== porta && rng() < 0.75) b.janelas.push(i);
@@ -250,13 +263,12 @@ export function buildWorld() {
   // Enfileira prédios ao longo de uma faixa, deixando ruelas entre eles.
   // `baseY` é a linha do chão: os prédios crescem para cima a partir dela.
   function quarteirao(m, x0, x1, baseY, opts = {}) {
-    const maxMod = opts.maxModulos || 2;   // sobrado de 1 ou 2 módulos
+    const minW = opts.minW || 4, maxW = opts.maxW || 7;
     let x = x0;
     const feitos = [];
-    while (x + MODULO_W - 1 <= x1) {
-      const mods = ri(1, maxMod);
-      const w = Math.min(mods, Math.floor((x1 - x + 1) / MODULO_W)) * MODULO_W;
-      if (w < MODULO_W) break;
+    while (x + minW - 1 <= x1) {
+      const w = Math.min(ri(minW, maxW), x1 - x + 1);
+      if (w < minW) break;
       const b = predio(m, x, baseY - PREDIO_H + 1, w, PREDIO_H, opts.variante);
       if (b) { feitos.push(b); x += w + ri(1, 2); } // ruela entre prédios
       else x += 1; // esbarrou em rua/praça: anda um tile e tenta de novo

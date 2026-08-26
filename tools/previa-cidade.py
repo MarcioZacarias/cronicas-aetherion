@@ -43,9 +43,8 @@ def main():
     ind_sets = json.loads((ASSETS / 'lpc-sets.json').read_text(encoding='utf-8'))['conjuntos']
     props_img = carregar('lpc-props')
     ind_props = json.loads((ASSETS / 'lpc-props.json').read_text(encoding='utf-8'))['props']
-    tel_img = carregar('lpc-telhados')
-    tel_meta = json.loads((ASSETS / 'lpc-telhados.json').read_text(encoding='utf-8'))
-    ind_tel, MOD_W = tel_meta['telhados'], tel_meta['modulo'][0]
+    tel_img = carregar('roof')
+    ind_tel = json.loads((ASSETS / 'roof.json').read_text(encoding='utf-8'))['cores']
     humanos = {n: carregar(n) for n in ('guard', 'princess', 'villager',
                                     'guard_a', 'guard_b', 'villager_a', 'villager_b',
                                     'villager_c', 'princess_a', 'princess_b', 'princess_c')}
@@ -223,13 +222,30 @@ def main():
             img.alpha_composite(tree.crop((0, 0, 96, 144)), (i * T - 32, j * T - 112))
         elif tipo == 'predio':
             b = a
-            MOD_W_ = tel_meta['modulo'][0]
-            t = ind_tel.get(b.get('telhado')) or ind_tel[next(iter(ind_tel))]
-            for mx in range(0, b['w'], MOD_W_):
-                img.alpha_composite(
-                    tel_img.crop((t['x'], t['y'], t['x'] + t['w'], t['y'] + t['h'])),
-                    ((b['x'] - x0 + mx) * T, (b['y'] - y0) * T))
+            linhas = b['h'] - 2
+            cumeeira = max(0, (linhas - 1) // 2)
+            cor = ind_tel.get(b.get('telhado')) or ind_tel['telha']
+            for cy in range(linhas):
+                for cxi in range(b['w']):
+                    esq, dire = cxi == 0, cxi == b['w'] - 1
+                    baixo = cy == linhas - 1
+                    if baixo and esq: nome = 'canto_esq'
+                    elif baixo and dire: nome = 'canto_dir'
+                    elif baixo: nome = 'beira_baixo'
+                    elif cy == cumeeira: nome = 'cume'
+                    elif esq: nome = 'beira_esq'
+                    elif dire: nome = 'beira_dir'
+                    else: nome = 'campo_topo' if cy < cumeeira else 'campo'
+                    pc = cor.get(nome)
+                    if pc:
+                        img.alpha_composite(
+                            tel_img.crop((pc[0], pc[1], pc[0] + pc[2], pc[1] + pc[3])),
+                            ((b['x'] - x0 + cxi) * T, (b['y'] - y0 + cy) * T))
             parede_y = b['y'] - y0 + b['h'] - 2
+            for cy in range(2):
+                for cxi in range(b['w']):
+                    peca_set('parede:' + b.get('parede', 'palha'), 'meio',
+                             (b['x'] - x0 + cxi) * T, (parede_y + cy) * T)
             pr = ind_props.get('porta')
             if pr:
                 img.alpha_composite(

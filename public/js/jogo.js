@@ -88,7 +88,7 @@ const SPRITES = ['soldier', 'guard', 'princess', 'villager', 'slime', 'bat', 'sn
   // Variantes vestidas geradas por tools/vestir-npcs.py — o pacote LPC
   // incluído traz só o corpo, sem as camadas de cabelo e roupa.
   'villager_a', 'villager_b', 'villager_c', 'guard_a', 'guard_b', 'soldier_a',
-  'princess_a', 'princess_b', 'princess_c', 'lpc-sets', 'lpc-telhados', 'lpc-props'];
+  'princess_a', 'princess_b', 'princess_c', 'lpc-sets', 'roof', 'lpc-props'];
 const IMG = {};
 
 // Índices dos atlas: city.png (portas/janelas recortadas das fachadas) e
@@ -116,10 +116,10 @@ function carregarSprites() {
     .then((r) => r.json())
     .then((j) => { SETS = j; })
     .catch(() => { console.warn('lpc-sets.json ausente: telhados e calçamento não serão desenhados'); });
-  const catTelhados = fetch('/assets/lpc-telhados.json')
+  const catTelhados = fetch('/assets/roof.json')
     .then((r) => r.json())
     .then((j) => { TELHADOS = j; })
-    .catch(() => { console.warn('lpc-telhados.json ausente: telhados não serão desenhados'); });
+    .catch(() => { console.warn('roof.json ausente: telhados não serão desenhados'); });
   const catProps = fetch('/assets/lpc-props.json')
     .then((r) => r.json())
     .then((j) => { PROPS = j; })
@@ -1044,25 +1044,45 @@ function pecaSet(chave, fatia, dx, dy) {
 // a pedra, ela virava uma tarja que não combinava com nenhum dos dois. O
 // beiral do próprio telhado já faz a transição.
 function desenharPredio(b) {
-  // O prédio é UMA peça: o recorte de 5x6 da folha do LPC já traz o
-  // telhado e a faixa de parede na mesma palheta e na mesma projeção.
-  // A tentativa anterior colava telhado em 3/4 sobre a fachada de
-  // elevação frontal do pacote antigo — duas projeções empilhadas, e o
-  // resultado lia como barraca com uma parede grudada embaixo.
-  if (!TELHADOS) return;
-  const t = TELHADOS.telhados[b.telhado]
-    || TELHADOS.telhados[Object.keys(TELHADOS.telhados)[0]];
-  const [modW] = TELHADOS.modulo;
+  // Telhado costurável em cima, parede sólida embaixo, porta e janelas por
+  // cima dela. Tudo em 9 fatias ou preenchimento, então compõe em qualquer
+  // largura e altura — foi o que resolveu depois de duas tentativas com
+  // peças prontas do LPC, que não são costuráveis e vinham com lixo das
+  // peças vizinhas da folha.
+  const linhas = b.h - 2;
+  const cumeeira = Math.max(0, Math.floor((linhas - 1) / 2));
 
-  for (let mx = 0; mx < b.w; mx += modW) {
-    ds(IMG['lpc-telhados'], t.x, t.y, t.w, t.h,
-      (b.x + mx) * TILE, b.y * TILE, t.w, t.h);
+  if (TELHADOS) {
+    const cor = TELHADOS.cores[b.telhado] || TELHADOS.cores.telha;
+    for (let cy = 0; cy < linhas; cy++) {
+      for (let cx = 0; cx < b.w; cx++) {
+        const esq = cx === 0, dir = cx === b.w - 1, baixo = cy === linhas - 1;
+        let nome;
+        if (baixo && esq) nome = 'canto_esq';
+        else if (baixo && dir) nome = 'canto_dir';
+        else if (baixo) nome = 'beira_baixo';
+        else if (cy === cumeeira) nome = 'cume';
+        else if (esq) nome = 'beira_esq';
+        else if (dir) nome = 'beira_dir';
+        else nome = cy < cumeeira ? 'campo_topo' : 'campo';
+        const p = cor[nome];
+        if (p) ds(IMG.roof, p[0], p[1], p[2], p[3], (b.x + cx) * TILE, (b.y + cy) * TILE, p[2], p[3]);
+      }
+    }
   }
 
-  // Porta e janelas são sobreposições transparentes, assentadas sobre a
-  // faixa de parede que já veio no recorte.
+  // Parede: só o PREENCHIMENTO do conjunto. As nove fatias do tijolo LPC
+  // são feitas para transicionar com outro terreno, e soltas deixam a
+  // parede com a borda esfarrapada.
+  const paredeY = b.y + b.h - 2;
+  for (let cy = 0; cy < 2; cy++) {
+    for (let cx = 0; cx < b.w; cx++) {
+      pecaSet(`parede:${b.parede || 'palha'}`, 'meio',
+        (b.x + cx) * TILE, (paredeY + cy) * TILE);
+    }
+  }
+
   if (PROPS) {
-    const paredeY = b.y + b.h - 2;
     const porta = PROPS.props.porta;
     if (porta) {
       ds(IMG['lpc-props'], porta.x, porta.y, porta.w, porta.h,
