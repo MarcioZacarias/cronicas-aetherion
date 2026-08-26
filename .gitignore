@@ -18,3 +18,4 @@ npm-debug.log*
 # O que o jogo usa está extraído em public/assets/.
 tiled/*.zip
 tiled/houses-origem.png
+tiled/slates/

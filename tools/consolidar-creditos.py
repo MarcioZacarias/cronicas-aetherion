@@ -42,6 +42,17 @@ Crédito não é exigido, mas é apreciado. Permitido editar; proibido
 revender o pacote de assets.
 
 https://szadiart.itch.io"""),
+
+    ('Casas avulsas de Lumera',
+     'Os quatro prédios de Lumera (tiled/ref/, no atlas casas.png)',
+     """house1.png, house1b.png, house1c.png e oga-blueroofinn.png.
+
+Informados como livres pelo autor do projeto. O prefixo "oga-" da
+estalagem indica OpenGameArt como origem.
+
+PENDENTE: a autoria exata de house1/1b/1c não foi confirmada. Se estes
+arquivos vierem de uma submissão que exija atribuição nominal, o nome do
+autor precisa entrar aqui antes de qualquer distribuição pública."""),
 ]
 
 CABECALHO = """CRÉDITOS DE ARTE — Crônicas de Aetherion
