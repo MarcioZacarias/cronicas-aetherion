@@ -183,35 +183,74 @@ export const SPAWNS = [
 // NPCS
 // ---------------------------------------------------------
 export const NPCS = [
-  // Vila de Lumera
+  // --- Vila de Lumera: cada um na porta do seu estabelecimento ---
+  { id: 'toren', name: 'Toren — Ferreiro', img: 'villager_a', map: 'over', x: 8, y: 21 },
+  { id: 'mira', name: 'Mira — Alquimista', img: 'princess_a', map: 'over', x: 19, y: 21 },
+  { id: 'irina', name: 'Irina — Sacerdotisa', img: 'princess_c', map: 'over', x: 8, y: 29 },
+  { id: 'bento', name: 'Bento — Cocheiro', img: 'villager_b', map: 'over', x: 19, y: 29 },
   { id: 'cedric', name: 'Cedric — Capitão da Guarda', img: 'guard_a', map: 'over', x: 13, y: 18 },
-  { id: 'mira', name: 'Mira — Alquimista', img: 'princess_a', map: 'over', x: 9, y: 23 },
-  { id: 'toren', name: 'Toren — Ferreiro', img: 'villager_a', map: 'over', x: 17, y: 23 },
-  // Ardentia — cada um no lugar que faz sentido para o seu papel
-  { id: 'elara', name: 'Elara — Bibliotecária', img: 'princess_c', map: 'vale', x: 16, y: 18 },
-  { id: 'tomas', name: 'Irmão Tomas — Irmandade', img: 'villager_b', map: 'vale', x: 30, y: 12 },
-  { id: 'harlan', name: 'Mestre Harlan — Armeiro', img: 'guard_b', map: 'vale', x: 42, y: 24 },
-  { id: 'sela', name: 'Sela — Mercadora', img: 'princess_b', map: 'vale', x: 45, y: 24 },
+
+  // --- Ardentia: o eixo comercial de frente para a praça ---
+  { id: 'gorm', name: 'Gorm — Caixa do Banco', img: 'villager_a', map: 'vale', x: 12, y: 20 },
+  { id: 'elara', name: 'Elara — Bibliotecária', img: 'princess_c', map: 'vale', x: 19, y: 20 },
+  { id: 'harlan', name: 'Mestre Harlan — Armeiro', img: 'guard_b', map: 'vale', x: 25, y: 20 },
+  { id: 'sela', name: 'Sela — Boticária', img: 'princess_b', map: 'vale', x: 34, y: 20 },
+  { id: 'edmun', name: 'Escrivão Edmun — Prefeitura', img: 'villager_c', map: 'vale', x: 41, y: 20 },
+  { id: 'brida', name: 'Brida — Taverneira', img: 'princess', map: 'vale', x: 48, y: 20 },
+  { id: 'seraf', name: 'Serafina — Sacerdotisa do Templo', img: 'princess_a', map: 'vale', x: 30, y: 12 },
+  { id: 'jorun', name: 'Jorun — Mestre das Carruagens', img: 'guard_b', map: 'vale', x: 36, y: 37 },
   { id: 'lyra', name: 'Capitã Lyra — Guarda de Ardentia', img: 'guard_a', map: 'vale', x: 30, y: 37 },
+  { id: 'tomas', name: 'Irmão Tomas — Irmandade', img: 'villager_b', map: 'vale', x: 26, y: 22 },
   { id: 'aldous', name: 'Velho Aldous — Mendigo', img: 'villager_c', map: 'vale', x: 26, y: 26 },
-  { id: 'rosa', name: 'Rosa — Estalajadeira', img: 'princess', map: 'vale', x: 36, y: 46 },
   { id: 'nilo', name: 'Nilo — Garoto Curioso', img: 'villager_b', map: 'vale', x: 33, y: 25 },
+  { id: 'rosa', name: 'Rosa — Estalajadeira', img: 'princess', map: 'vale', x: 36, y: 46 },
 ];
 
-// Lojas: quem vende o quê.
-export const SHOPS = {
-  mira: ['potion', 'mpotion', 'torch'],
-  toren: ['sword1', 'shield1', 'armor1', 'pickaxe'],
-  harlan: ['sword3', 'shield2', 'armor2'],
-  sela: ['potion', 'bigpotion', 'mpotion', 'torch'],
+// ---------------------------------------------------------
+// SERVIÇOS DA CIDADE
+// ---------------------------------------------------------
+
+// Quem atende o balcão do banco. O acervo é da CONTA, não do personagem:
+// assim dá para passar ouro e equipamento entre os seus próprios heróis.
+export const BANCARIOS = ['gorm'];
+
+// Templos: onde se renasce. Ficam na porta do prédio, não dentro dele.
+export const TEMPLOS = {
+  lumera:   { nome: 'Santuário de Lumera',  map: 'over', x: 8,  y: 29 },
+  ardentia: { nome: 'Templo de Ardentia',   map: 'vale', x: 30, y: 12 },
 };
 
-// Onde cada mapa devolve quem morre: a praça de Lumera e a de Ardentia.
+// Viagem paga. O preço é o que separa "atalho conveniente" de "teleporte
+// que torna o mundo irrelevante" — andar continua sendo de graça.
+export const DESTINOS = {
+  lumera:    { nome: 'Lumera',                map: 'over', x: 19, y: 29, preco: 60 },
+  minas:     { nome: 'Entrada das Minas',     map: 'over', x: 18, y: 7,  preco: 35 },
+  ardentia:  { nome: 'Ardentia',              map: 'vale', x: 36, y: 37, preco: 60 },
+  cemiterio: { nome: 'Cemitério de Ardentia', map: 'vale', x: 17, y: 47, preco: 40 },
+};
+
+// Cada cocheiro oferece as rotas que fazem sentido de onde ele está.
+export const ESTACOES = {
+  bento: ['ardentia', 'minas'],
+  jorun: ['lumera', 'cemiterio'],
+};
+
+// Lojas: quem vende o quê. Armaria e botica são especializadas — quem
+// quer poção não procura no ferreiro.
+export const SHOPS = {
+  toren:  ['sword1', 'shield1', 'armor1', 'pickaxe'],
+  mira:   ['potion', 'mpotion', 'torch'],
+  harlan: ['sword1', 'sword3', 'shield1', 'shield2', 'armor1', 'armor2'],
+  sela:   ['potion', 'bigpotion', 'mpotion', 'torch', 'pickaxe'],
+};
+
+// Quem morre acorda no templo da região. Se o personagem já registrou um
+// templo (tocando o altar), o servidor prefere esse.
 export const RESPAWN_POINTS = {
-  over: { map: 'over', x: 14, y: 22 },
-  mine: { map: 'over', x: 14, y: 22 },
-  vale: { map: 'vale', x: 26, y: 25 },
-  cata: { map: 'vale', x: 26, y: 25 },
+  over: TEMPLOS.lumera,
+  mine: TEMPLOS.lumera,
+  vale: TEMPLOS.ardentia,
+  cata: TEMPLOS.ardentia,
 };
 
 // Ligações entre mapas: tile 12 entra, tile 11 sai.

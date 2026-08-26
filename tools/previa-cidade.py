@@ -113,6 +113,37 @@ def main():
         sx, sy, sw, sh = p
         img.alpha_composite(city.crop((sx, sy, sx + sw, sy + sh)), (cx, cy))
 
+
+    CORES = {
+        'armaria': ((140, 59, 46), (240, 208, 96)), 'botica': ((61, 122, 82), (143, 224, 160)),
+        'banco': ((47, 74, 122), (154, 192, 240)), 'prefeitura': ((90, 74, 122), (200, 176, 240)),
+        'templo': ((106, 90, 140), (203, 184, 255)), 'estacao': ((122, 90, 46), (224, 192, 128)),
+        'taverna': ((122, 74, 36), (232, 176, 112)), 'biblioteca': ((74, 90, 122), (168, 192, 224)),
+    }
+
+    def letreiro(b):
+        toldo, cor_nome = CORES.get(b['tipo'], CORES['armaria'])
+        px = (b['x'] - x0 + b['porta']) * T
+        py = (b['y'] - y0 + b['h'] - 3) * T
+        # toldo listrado sobre a porta
+        dr.rectangle([px - T * .14, py + T * .72, px + T * 1.14, py + T * 1.02], fill=toldo)
+        for i in range(4):
+            xx = px - T * .14 + T * (.16 + i * .32)
+            dr.rectangle([xx, py + T * .72, xx + T * .16, py + T * 1.02], fill=(240, 236, 224))
+        # tabuleta ao lado
+        sx, sy = px + T * 1.05, py + T * .28
+        dr.rectangle([px + T * .9, py + T * .2, px + T * 1.3, py + T * .27], fill=(58, 49, 40))
+        dr.rectangle([sx, sy + T * .08, sx + T * .56, sy + T * .52], fill=(90, 64, 32))
+        dr.rectangle([sx + T * .04, sy + T * .12, sx + T * .52, sy + T * .48], fill=(122, 90, 48))
+        # nome acima do telhado
+        nome = b.get('nome')
+        if nome:
+            nx = (b['x'] - x0 + b['w'] / 2) * T
+            ny = (b['y'] - y0) * T - 12
+            larg = len(nome) * 6
+            dr.rectangle([nx - larg / 2 - 3, ny - 2, nx + larg / 2 + 3, ny + 11], fill=(0, 0, 0))
+            dr.text((nx - larg / 2, ny), nome, fill=cor_nome)
+
     for _, (tipo, a, b_) in fila:
         if tipo == 'arvore':
             i, j = a, b_
@@ -139,6 +170,8 @@ def main():
                 elif not borda and cxi in b.get('janelas', []):
                     nome = 'base_janela'
                 peca(b['v'], nome, px, (b['y'] - y0 + b['h'] - 2) * T)
+            if b.get('tipo'):
+                letreiro(b)
         elif tipo == 'prop':
             p = a
             px, py = (p['x'] - x0) * T, (p['y'] - y0) * T

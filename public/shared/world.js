@@ -94,6 +94,10 @@ export function buildWorld() {
       porta,        // coluna (relativa) onde fica a porta
       janelas: [],  // colunas com janela no térreo
       altas: [],    // colunas com janela no andar de cima
+      // Estabelecimentos levam letreiro, toldo e nome na fachada. É o que
+      // separa "uma casa qualquer" de "a armaria" sem precisar de arte nova.
+      tipo: opts.tipo || null,
+      nome: opts.nome || null,
     };
     // Janelas na faixa da base, em toda coluna que não é porta nem quina.
     for (let i = 1; i < w - 1; i++) if (i !== porta && rng() < 0.75) b.janelas.push(i);
@@ -224,10 +228,21 @@ export function buildWorld() {
     reservar(m, 18, 6, 18, 16, 1);
     T[30][14] = 18; T[31][14] = 18;      // descida para o porto
 
-    quarteirao(m, 6, 12, 20, { minW: 4, maxW: 5, minH: 5, maxH: 5 });
-    quarteirao(m, 15, 23, 20, { minW: 4, maxW: 5, minH: 5, maxH: 5 });
-    quarteirao(m, 6, 12, 28, { minW: 4, maxW: 5, minH: 5, maxH: 5 });
-    quarteirao(m, 15, 23, 28, { minW: 4, maxW: 5, minH: 5, maxH: 5 });
+    // Lumera é vila, não cidade: quatro serviços essenciais e nada mais.
+    // Quem começa o jogo precisa achar tudo sem procurar.
+    const SERVICOS_LUMERA = [
+      [6, 16, 5, 'house', 'armaria', 'Forja de Toren'],
+      [17, 16, 5, 'house2', 'botica', 'Botica de Mira'],
+      [6, 24, 5, 'chapel', 'templo', 'Santuário de Lumera'],
+      [17, 24, 5, 'house', 'estacao', 'Ponto da Carruagem'],
+    ];
+    for (const [bx, by, bw, variante, tipo, nome] of SERVICOS_LUMERA) {
+      reservar(m, bx, by, bx + bw - 1, by + 4);
+      predio(m, bx, by, bw, 5, variante, { emReserva: true, tipo, nome });
+    }
+    // Uma casa comum de cada lado, para a vila não ser só comércio.
+    quarteirao(m, 11, 12, 20, { minW: 2, maxW: 2, minH: 5, maxH: 5 });
+    quarteirao(m, 22, 23, 28, { minW: 2, maxW: 2, minH: 5, maxH: 5 });
 
     objeto(m, 'poco', 16, 22);
     objeto(m, 'lampiao', 11, 22); objeto(m, 'lampiao', 20, 22);
@@ -280,16 +295,39 @@ export function buildWorld() {
     // Praça central e mercado, também reservados antes de construir.
     reservar(m, 22, 20, 36, 28, 18);
     reservar(m, 38, 20, 48, 28, 18);
-    // Lotes da catedral e da biblioteca.
+    // ===== Templo, no fim da avenida =====
+    // É o ponto de renascimento da cidade: quem morre acorda aqui.
     reservar(m, 24, 5, 35, 11);
-    reservar(m, 12, 15, 20, 19, 18);
-
-    // ===== Catedral: fachada larga e alta no fim da avenida =====
-    predio(m, 25, 5, 10, 7, 'chapel', { porta: 5, luz: 2, emReserva: true });
+    predio(m, 25, 5, 10, 7, 'chapel',
+      { porta: 5, emReserva: true, tipo: 'templo', nome: 'Templo de Ardentia' });
     objeto(m, 'lampiao', 24, 11); objeto(m, 'lampiao', 35, 11);
+    objeto(m, 'braseiro', 28, 12); objeto(m, 'braseiro', 31, 12);
 
-    // ===== Biblioteca: estantes à vista, sem parede na frente =====
-    T[17][13] = 14; T[17][15] = 14; T[17][17] = 14; T[17][19] = 14;
+    // ===== Eixo comercial: a fileira que dá de frente para a praça =====
+    // Todo serviço da cidade fica na mesma rua, para o jogador não ter de
+    // caçar prédio: banco, biblioteca, armaria, botica, prefeitura, taverna.
+    const COMERCIO = [
+      [9, 6, 'house2', 'banco', 'Banco de Valedorn'],
+      [16, 6, 'chapel', 'biblioteca', 'Biblioteca de Ardentia'],
+      [23, 5, 'house', 'armaria', 'Armaria do Martelo'],
+      [32, 5, 'house2', 'botica', 'Botica da Raiz'],
+      [38, 6, 'house', 'prefeitura', 'Prefeitura de Ardentia'],
+      [45, 6, 'chapel', 'taverna', 'Taverna do Corvo'],
+    ];
+    for (const [bx, bw, variante, tipo, nome] of COMERCIO) {
+      reservar(m, bx, 14, bx + bw - 1, 19);
+      predio(m, bx, 14, bw, 6, variante, { emReserva: true, tipo, nome });
+      // Lampião ao lado da porta, na calçada em frente.
+      objeto(m, 'lampiao', bx - 1, 20);
+    }
+
+    // ===== Estação das carruagens, perto do portão sul =====
+    reservar(m, 33, 31, 39, 36);
+    predio(m, 33, 31, 7, 6, 'house', { emReserva: true, tipo: 'estacao', nome: 'Estação das Carruagens' });
+    // Nada de mobiliário na faixa y=37: ela é um corredor de um tile entre
+    // a estação e a muralha, e dois barris ali isolam o cocheiro do resto
+    // da cidade. Os volumes ficam na travessa, acima do prédio.
+    objeto(m, 'engradado', 32, 30); objeto(m, 'barril', 40, 30);
 
     // ===== Quarteirões =====
     // Quatro fileiras de norte a sul; o que esbarra em rua ou praça é

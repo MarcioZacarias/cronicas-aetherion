@@ -7,7 +7,9 @@
 // =========================================================
 
 import { buildWorld, TILE, BLOCK } from '/shared/world.js';
-import { CLASSES, ITEMS, MSPR, NPCS, SHOPS, xpNeeded } from '/shared/content.js';
+import {
+  CLASSES, ITEMS, MSPR, NPCS, SHOPS, BANCARIOS, ESTACOES, DESTINOS, xpNeeded,
+} from '/shared/content.js';
 
 const $ = (id) => document.getElementById(id);
 const charId = new URLSearchParams(location.search).get('char');
@@ -203,6 +205,12 @@ function receber(m) {
       pintarHud();
       if ($('inv').classList.contains('open')) pintarInventario();
       if ($('shop').classList.contains('open')) pintarLoja();
+      if ($('banco').classList.contains('open')) pintarBanco();
+      break;
+    }
+    case 'banco': {
+      cofre = { gold: m.gold, items: m.items || [] };
+      if ($('banco').classList.contains('open')) pintarBanco();
       break;
     }
     case 'snap': {
@@ -438,7 +446,93 @@ function tocarNpc(npc, me) {
     return;
   }
   if (SHOPS[npc.id]) return abrirLoja(npc.id);
+  if (BANCARIOS.includes(npc.id)) return abrirBanco(npc);
+  if (ESTACOES[npc.id]) return abrirViagem(npc);
   registrar(`${npc.name}: "Que os ventos lhe sejam bons, viajante."`);
+}
+
+// ---------------------------------------------------------
+// Banco
+// ---------------------------------------------------------
+let cofre = null; // { gold, items } — o que o servidor diz que há na conta
+
+function abrirBanco(npc) {
+  $('banconame').textContent = npc.name;
+  cofre = null;
+  pintarBanco();
+  $('banco').classList.add('open');
+  enviar({ t: 'banco', acao: 'consultar' });
+}
+
+function pintarBanco() {
+  if (!eu) return;
+  $('bancosaldo').textContent = cofre
+    ? `No cofre: ${cofre.gold} 💰   ·   Com você: ${eu.gold} 💰`
+    : 'Consultando o caixa...';
+
+  const lista = $('bancoitens');
+  lista.innerHTML = '';
+  if (!cofre) return;
+
+  if (!cofre.items.length) {
+    const v = document.createElement('div');
+    v.style.cssText = 'font-size:11px;color:#8a7a5a;padding:8px 0';
+    v.textContent = 'O cofre está vazio.';
+    lista.appendChild(v);
+  }
+  cofre.items.forEach((slot, i) => {
+    const it = ITEMS[slot.id];
+    if (!it) return;
+    const linha = document.createElement('div');
+    linha.className = 'shoprow';
+    linha.innerHTML = `<span class="ic">${it.icon}</span><span class="nm"></span><button>Retirar</button>`;
+    linha.querySelector('.nm').textContent = it.name + (slot.qty > 1 ? ` ×${slot.qty}` : '');
+    linha.querySelector('button').onclick = () => enviar({ t: 'banco', acao: 'retirar', idx: i });
+    lista.appendChild(linha);
+  });
+
+  const daMochila = $('bancomochila');
+  daMochila.innerHTML = '';
+  eu.inv.forEach((slot, i) => {
+    const it = ITEMS[slot.id];
+    if (!it) return;
+    const linha = document.createElement('div');
+    linha.className = 'shoprow';
+    linha.innerHTML = `<span class="ic">${it.icon}</span><span class="nm"></span><button>Guardar</button>`;
+    linha.querySelector('.nm').textContent = it.name + (slot.qty > 1 ? ` ×${slot.qty}` : '');
+    linha.querySelector('button').onclick = () => enviar({ t: 'banco', acao: 'guardar', idx: i });
+    daMochila.appendChild(linha);
+  });
+}
+
+function valorBanco() {
+  const v = Math.floor(Number($('bancovalor').value));
+  return Number.isFinite(v) && v > 0 ? v : 0;
+}
+
+// ---------------------------------------------------------
+// Viagem
+// ---------------------------------------------------------
+function abrirViagem(npc) {
+  $('viagemname').textContent = npc.name;
+  const rotas = ESTACOES[npc.id] || [];
+  const lista = $('viagemrotas');
+  lista.innerHTML = '';
+  for (const id of rotas) {
+    const d = DESTINOS[id];
+    if (!d) continue;
+    const linha = document.createElement('div');
+    linha.className = 'shoprow';
+    linha.innerHTML = `<span class="ic">🐎</span><span class="nm"></span><button></button>`;
+    linha.querySelector('.nm').textContent = d.nome;
+    const b = linha.querySelector('button');
+    b.textContent = `${d.preco} 💰`;
+    b.disabled = !eu || eu.gold < d.preco;
+    b.onclick = () => { enviar({ t: 'viajar', destino: id }); fecharModais(); };
+    lista.appendChild(linha);
+  }
+  $('viagemouro').textContent = eu ? `Seu ouro: ${eu.gold}` : '';
+  $('viagem').classList.add('open');
 }
 
 // direcional
@@ -502,13 +596,18 @@ function alternarInventario() {
   if (el.classList.contains('open')) pintarInventario();
 }
 function fecharModais() {
-  $('inv').classList.remove('open');
-  $('shop').classList.remove('open');
+  for (const id of ['inv', 'shop', 'banco', 'viagem']) $(id).classList.remove('open');
   lojaAtual = null;
+  cofre = null;
 }
 $('bagbtn').onclick = alternarInventario;
 $('closeinv').onclick = () => $('inv').classList.remove('open');
 $('closeshop').onclick = () => { $('shop').classList.remove('open'); lojaAtual = null; };
+$('closebanco').onclick = () => { $('banco').classList.remove('open'); cofre = null; };
+$('closeviagem').onclick = () => $('viagem').classList.remove('open');
+$('bancodep').onclick = () => { const v = valorBanco(); if (v) enviar({ t: 'banco', acao: 'depositar', valor: v }); };
+$('bancosac').onclick = () => { const v = valorBanco(); if (v) enviar({ t: 'banco', acao: 'sacar', valor: v }); };
+$('bancotudo').onclick = () => { if (eu) $('bancovalor').value = String(eu.gold); };
 $('spellbtn').onclick = () => enviar({ t: 'spell' });
 $('stopbtn').onclick = () => { enviar({ t: 'stop' }); dest = null; alvo = null; };
 $('zoomin').onclick = () => mudarZoom(1);
@@ -858,6 +957,127 @@ function desenharPredio(b) {
     if (cx === b.porta) nomeBase = 'porta';
     else if (!borda && b.janelas.includes(cx)) nomeBase = 'base_janela';
     peca(v, nomeBase, px, baseY);
+  }
+
+  if (b.tipo) desenharLetreiro(b);
+}
+
+// Cor do toldo e emblema por tipo de estabelecimento. É isto — e não uma
+// fachada diferente — que faz reconhecer a armaria de longe.
+const ESTABELECIMENTOS = {
+  armaria:    { toldo: '#8c3b2e', nome: '#f0d060' },
+  botica:     { toldo: '#3d7a52', nome: '#8fe0a0' },
+  banco:      { toldo: '#2f4a7a', nome: '#9ac0f0' },
+  prefeitura: { toldo: '#5a4a7a', nome: '#c8b0f0' },
+  templo:     { toldo: '#6a5a8c', nome: '#cbb8ff' },
+  estacao:    { toldo: '#7a5a2e', nome: '#e0c080' },
+  taverna:    { toldo: '#7a4a24', nome: '#e8b070' },
+  biblioteca: { toldo: '#4a5a7a', nome: '#a8c0e0' },
+};
+
+function desenharLetreiro(b) {
+  const est = ESTABELECIMENTOS[b.tipo] || ESTABELECIMENTOS.armaria;
+  const S = TILE * ZOOM;
+  const portaX = (b.x + b.porta) * TILE;
+  const cornijaY = (b.y + b.h - 3) * TILE;
+  const bx = (portaX - cam.x) * ZOOM;
+  const by = (cornijaY - cam.y) * ZOOM;
+
+  // --- toldo listrado sobre a porta ---
+  ctx.fillStyle = est.toldo;
+  ctx.fillRect(bx - S * 0.14, by + S * 0.72, S * 1.28, S * 0.3);
+  ctx.fillStyle = 'rgba(240,236,224,.85)';
+  for (let i = 0; i < 4; i++) {
+    ctx.fillRect(bx - S * 0.14 + S * (0.16 + i * 0.32), by + S * 0.72, S * 0.16, S * 0.3);
+  }
+  ctx.fillStyle = 'rgba(0,0,0,.35)';
+  ctx.fillRect(bx - S * 0.14, by + S * 1.0, S * 1.28, S * 0.06);
+
+  // --- tabuleta pendurada ao lado da porta ---
+  const sx = bx + S * 1.05, sy = by + S * 0.28;
+  ctx.fillStyle = '#3a3128';
+  ctx.fillRect(bx + S * 0.9, by + S * 0.2, S * 0.4, S * 0.07);
+  ctx.fillRect(sx + S * 0.26, by + S * 0.24, S * 0.05, S * 0.12);
+  ctx.fillStyle = '#5a4020';
+  ctx.fillRect(sx, sy + S * 0.08, S * 0.56, S * 0.44);
+  ctx.fillStyle = '#7a5a30';
+  ctx.fillRect(sx + S * 0.04, sy + S * 0.12, S * 0.48, S * 0.36);
+  desenharEmblema(b.tipo, sx + S * 0.28, sy + S * 0.3, S * 0.34);
+
+  // --- nome acima do telhado ---
+  if (b.nome) {
+    const nx = (b.x + b.w / 2) * TILE - cam.x;
+    const ny = b.y * TILE - cam.y - 6;
+    ctx.font = `bold ${7 * ZOOM}px Courier New`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(0,0,0,.75)';
+    const larg = ctx.measureText(b.nome).width;
+    ctx.fillRect(nx * ZOOM - larg / 2 - 4, ny * ZOOM - 9 * ZOOM, larg + 8, 10 * ZOOM);
+    ctx.fillStyle = est.nome;
+    ctx.fillText(b.nome, nx * ZOOM, ny * ZOOM - ZOOM);
+  }
+}
+
+// Emblemas desenhados com primitivas: um símbolo legível a 2x vale mais
+// que um ícone detalhado que vira mancha.
+function desenharEmblema(tipo, cx, cy, t) {
+  const q = (x, y, w, h, cor) => { ctx.fillStyle = cor; ctx.fillRect(cx + x * t, cy + y * t, w * t, h * t); };
+  switch (tipo) {
+    case 'armaria': // espada cruzando escudo
+      q(-0.10, -0.55, 0.20, 0.75, '#d8d4c8');
+      q(-0.22, 0.12, 0.44, 0.12, '#8a6a34');
+      q(-0.05, 0.20, 0.10, 0.30, '#5a4020');
+      q(0.14, -0.30, 0.34, 0.50, '#6a7a9a');
+      q(0.18, -0.24, 0.26, 0.36, '#8fa0c0');
+      break;
+    case 'botica': // frasco de poção
+      q(-0.10, -0.55, 0.20, 0.18, '#cfd8dc');
+      q(-0.22, -0.38, 0.44, 0.70, '#b6c4c9');
+      q(-0.16, -0.10, 0.32, 0.38, '#5ac07a');
+      q(-0.16, -0.18, 0.32, 0.08, '#8fe0a0');
+      break;
+    case 'banco': // pilha de moedas
+      for (let i = 0; i < 3; i++) {
+        q(-0.26 + i * 0.02, 0.24 - i * 0.22, 0.52 - i * 0.04, 0.18, '#e0b840');
+        q(-0.22 + i * 0.02, 0.26 - i * 0.22, 0.44 - i * 0.04, 0.06, '#f5e08a');
+      }
+      break;
+    case 'prefeitura': // estandarte
+      q(-0.06, -0.60, 0.10, 1.10, '#6a5a44');
+      q(0.02, -0.56, 0.44, 0.42, '#8c6ad0');
+      q(0.02, -0.30, 0.44, 0.10, '#c8b0f0');
+      break;
+    case 'templo': // sol/eclipse
+      ctx.fillStyle = '#f0e0a0';
+      ctx.beginPath(); ctx.arc(cx, cy, t * 0.34, 0, 7); ctx.fill();
+      ctx.fillStyle = '#3a2a5a';
+      ctx.beginPath(); ctx.arc(cx + t * 0.12, cy - t * 0.06, t * 0.26, 0, 7); ctx.fill();
+      break;
+    case 'estacao': // roda de carruagem
+      ctx.strokeStyle = '#c8a060'; ctx.lineWidth = Math.max(1, t * 0.12);
+      ctx.beginPath(); ctx.arc(cx, cy, t * 0.42, 0, 7); ctx.stroke();
+      for (let i = 0; i < 4; i++) {
+        const a = i * Math.PI / 4;
+        ctx.beginPath();
+        ctx.moveTo(cx - Math.cos(a) * t * 0.4, cy - Math.sin(a) * t * 0.4);
+        ctx.lineTo(cx + Math.cos(a) * t * 0.4, cy + Math.sin(a) * t * 0.4);
+        ctx.stroke();
+      }
+      break;
+    case 'taverna': // caneca
+      q(-0.30, -0.34, 0.48, 0.68, '#c8b48a');
+      q(-0.26, -0.28, 0.40, 0.20, '#f2ece0');
+      q(0.18, -0.18, 0.18, 0.10, '#c8b48a');
+      q(0.28, -0.18, 0.08, 0.34, '#c8b48a');
+      q(0.18, 0.16, 0.18, 0.10, '#c8b48a');
+      break;
+    case 'biblioteca': // livro aberto
+      q(-0.44, -0.26, 0.42, 0.56, '#d8d0bc');
+      q(0.02, -0.26, 0.42, 0.56, '#e8e0cc');
+      q(-0.03, -0.30, 0.06, 0.64, '#7a5a30');
+      break;
+    default:
+      break;
   }
 }
 

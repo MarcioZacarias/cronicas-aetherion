@@ -10,7 +10,8 @@
 import { buildWorld, BLOCK, DIR } from '../public/shared/world.js';
 import {
   CLASSES, MTYPES, NPCS, SPAWNS, ITEMS, EQ_SLOTS, SHOPS,
-  RESPAWN_POINTS, PORTALS, baseStats, spellPower, xpNeeded,
+  RESPAWN_POINTS, PORTALS, TEMPLOS, DESTINOS, ESTACOES, BANCARIOS,
+  baseStats, spellPower, xpNeeded,
 } from '../public/shared/content.js';
 import { query } from './db.js';
 
@@ -143,6 +144,7 @@ export class Game {
       inv: Array.isArray(char.inventory) ? char.inventory : [],
       eq: char.equipment || { weapon: null, shield: null, armor: null, ring: null },
       quest: char.quest || {},
+      home: char.home || null,   // templo registrado; null = usa o da região
       path: [], target: null, moveCd: 0, atkCd: 0, spellCd: 0,
       dead: false, deadUntil: 0, ws, dirty: true, events: [],
     };
@@ -214,6 +216,14 @@ export class Game {
       case 'interact': return this.cmdInteract(p, msg);
       case 'buy': return this.cmdBuy(p, msg);
       case 'sell': return this.cmdSell(p, msg);
+      // cmdBanco toca o banco de dados: a rejeição precisa ser capturada
+      // aqui, senão vira unhandledRejection e não chega ao jogador.
+      case 'banco':
+        return this.cmdBanco(p, msg).catch((err) => {
+          console.error('[banco] falhou:', err.message);
+          this.toast(p, 'O caixa não conseguiu concluir a operação.');
+        });
+      case 'viajar': return this.cmdViajar(p, msg);
       case 'chat': return this.chat(p, msg.text);
       default: return;
     }
@@ -397,6 +407,110 @@ export class Game {
     this.toast(p, `Vendeu ${it.name} por ${valor} ouro.`);
   }
 
+  // -------------------------------------------------------
+  // Serviços da cidade
+  // -------------------------------------------------------
+
+  // Todo serviço exige estar ao lado de quem atende. Sem isso, um cliente
+  // adulterado sacaria do banco do meio do cemitério.
+  pertoDe(p, npcId, alcance = 2) {
+    const n = NPCS.find((x) => x.id === npcId && x.map === p.map);
+    if (!n) return null;
+    if (Math.abs(n.x - p.tx) > alcance || Math.abs(n.y - p.ty) > alcance) return null;
+    return n;
+  }
+
+  async cmdBanco(p, msg) {
+    if (!BANCARIOS.some((id) => this.pertoDe(p, id))) {
+      return this.toast(p, 'Você precisa estar no balcão do banco.');
+    }
+    const conta = await this.lerBanco(p.accountId);
+    if (!conta) return this.toast(p, 'O caixa não encontrou sua conta.');
+
+    const qtd = Math.floor(Number(msg.valor));
+    switch (msg.acao) {
+      case 'depositar': {
+        if (!Number.isFinite(qtd) || qtd <= 0) return;
+        const v = Math.min(qtd, p.gold);
+        if (v <= 0) return this.toast(p, 'Você não tem ouro para depositar.');
+        p.gold -= v; conta.gold += v; p.dirty = true;
+        await this.gravarBanco(p.accountId, conta);
+        this.toast(p, `Depositou ${v} ouro. Saldo: ${conta.gold}.`);
+        break;
+      }
+      case 'sacar': {
+        if (!Number.isFinite(qtd) || qtd <= 0) return;
+        const v = Math.min(qtd, conta.gold);
+        if (v <= 0) return this.toast(p, 'Seu saldo está zerado.');
+        conta.gold -= v; p.gold += v; p.dirty = true;
+        await this.gravarBanco(p.accountId, conta);
+        this.toast(p, `Sacou ${v} ouro. Saldo: ${conta.gold}.`);
+        break;
+      }
+      case 'guardar': {
+        const slot = p.inv[msg.idx];
+        if (!slot) return;
+        if (conta.items.length >= 30) return this.toast(p, 'O cofre está cheio.');
+        const it = ITEMS[slot.id];
+        const pilha = it && it.stack && conta.items.find((s) => s.id === slot.id);
+        if (pilha) pilha.qty += 1; else conta.items.push({ id: slot.id, qty: 1 });
+        this.consume(p, msg.idx);
+        await this.gravarBanco(p.accountId, conta);
+        this.toast(p, `${it.name} guardado no cofre.`);
+        break;
+      }
+      case 'retirar': {
+        const slot = conta.items[msg.idx];
+        if (!slot) return;
+        if (p.inv.length >= 20) return this.toast(p, 'Sua mochila está cheia.');
+        this.addItem(p, slot.id);
+        if (slot.qty > 1) slot.qty -= 1; else conta.items.splice(msg.idx, 1);
+        await this.gravarBanco(p.accountId, conta);
+        this.toast(p, `${ITEMS[slot.id].name} retirado do cofre.`);
+        break;
+      }
+      default:
+        break;
+    }
+    this.sendTo(p, { t: 'banco', gold: conta.gold, items: conta.items });
+  }
+
+  async lerBanco(accountId) {
+    try {
+      const { rows } = await query(
+        'SELECT bank_gold, bank_items FROM accounts WHERE id = $1', [Number(accountId)],
+      );
+      if (!rows[0]) return null;
+      return { gold: rows[0].bank_gold, items: rows[0].bank_items || [] };
+    } catch (err) {
+      console.error('[banco] leitura falhou:', err.message);
+      return null;
+    }
+  }
+
+  async gravarBanco(accountId, conta) {
+    try {
+      await query(
+        'UPDATE accounts SET bank_gold = $1, bank_items = $2::jsonb WHERE id = $3',
+        [conta.gold, JSON.stringify(conta.items), Number(accountId)],
+      );
+    } catch (err) {
+      console.error('[banco] gravação falhou:', err.message);
+    }
+  }
+
+  cmdViajar(p, { destino }) {
+    const cocheiro = Object.keys(ESTACOES).find((id) => this.pertoDe(p, id));
+    if (!cocheiro) return this.toast(p, 'Procure um cocheiro para viajar.');
+    if (!ESTACOES[cocheiro].includes(destino)) return this.toast(p, 'Essa rota não sai daqui.');
+    const d = DESTINOS[destino];
+    if (!d) return;
+    if (p.gold < d.preco) return this.toast(p, `A passagem custa ${d.preco} ouro.`);
+    p.gold -= d.preco; p.dirty = true;
+    this.teleport(p, d);
+    this.toast(p, `Você desembarca em ${d.nome}. (-${d.preco} ouro)`);
+  }
+
   chat(p, text) {
     if (!p || typeof text !== 'string') return;
     const t = text.trim().slice(0, CHAT_MAX);
@@ -493,7 +607,8 @@ export class Game {
   }
 
   revivePlayer(p) {
-    const ponto = RESPAWN_POINTS[p.map] || RESPAWN_POINTS.over;
+    // O templo registrado tem prioridade; sem ele, o da região onde morreu.
+    const ponto = p.home || RESPAWN_POINTS[p.map] || RESPAWN_POINTS.over;
     const antes = p.map;
     p.map = ponto.map;
     const livre = this.nearestFree(ponto.map, ponto.x, ponto.y, p);
@@ -516,6 +631,19 @@ export class Game {
   }
 
   onArrive(p) {
+    // Pisar na porta do templo registra o ponto de renascimento. É
+    // automático de propósito: obrigar a falar com alguém só faz o jogador
+    // descobrir o sistema na hora errada — depois de morrer.
+    for (const t of Object.values(TEMPLOS)) {
+      if (t.map === p.map && t.x === p.tx && t.y === p.ty) {
+        const jaEra = p.home && p.home.map === t.map && p.home.x === t.x && p.home.y === t.y;
+        if (!jaEra) {
+          p.home = { map: t.map, x: t.x, y: t.y, nome: t.nome };
+          p.dirty = true;
+          this.toast(p, `${t.nome}: seu ponto de renascimento foi registrado aqui.`);
+        }
+      }
+    }
     const tile = this.maps[p.map].tiles[p.ty][p.tx];
     const link = PORTALS[p.map];
     if (tile === 12 && link && link.enter) return this.teleport(p, link.enter);
@@ -745,6 +873,7 @@ export class Game {
         level: p.level, xp: p.xp, xpNext: xpNeeded(p.level), gold: p.gold,
         hp: Math.round(p.hp), hpMax: st.hpMax, mp: Math.round(p.mp), mpMax: st.mpMax,
         atk: st.atk, def: st.def, dead: p.dead, spellCd: Math.round(p.spellCd),
+        home: p.home,
         inv: p.inv, eq: p.eq, quest: p.quest,
       });
     }
@@ -757,10 +886,12 @@ export class Game {
     try {
       await query(
         `UPDATE characters SET level=$1, xp=$2, gold=$3, hp=$4, mp=$5, map=$6, tx=$7, ty=$8,
-                inventory=$9::jsonb, equipment=$10::jsonb, quest=$11::jsonb, last_played_at=now()
-          WHERE id=$12`,
+                inventory=$9::jsonb, equipment=$10::jsonb, quest=$11::jsonb,
+                home=$12::jsonb, last_played_at=now()
+          WHERE id=$13`,
         [p.level, p.xp, p.gold, Math.round(p.hp), Math.round(p.mp), p.map, p.tx, p.ty,
-         JSON.stringify(p.inv), JSON.stringify(p.eq), JSON.stringify(p.quest), Number(p.charId)],
+         JSON.stringify(p.inv), JSON.stringify(p.eq), JSON.stringify(p.quest),
+         p.home ? JSON.stringify(p.home) : null, Number(p.charId)],
       );
     } catch (err) {
       console.error('[game] falha ao salvar', p.nick, '-', err.message);

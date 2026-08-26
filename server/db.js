@@ -65,6 +65,14 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 
 CREATE INDEX IF NOT EXISTS sessions_expires_idx ON sessions (expires_at);
+
+-- O banco é da CONTA, não do personagem: permite mover ouro e equipamento
+-- entre os heróis do mesmo jogador, que é metade da graça de ter banco.
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS bank_gold  INT   NOT NULL DEFAULT 0;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS bank_items JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+-- Templo registrado pelo personagem; nulo = usa o templo da região.
+ALTER TABLE characters ADD COLUMN IF NOT EXISTS home JSONB;
 `;
 
 export async function migrate() {
