@@ -34,6 +34,18 @@ export function makeRng(seed) {
 // Variantes de fachada disponíveis no atlas gerado (city.png).
 export const VARIANTES_PREDIO = ['house', 'house2', 'chapel'];
 
+// Cores de telhado (roof.png). O telhado é visto DE CIMA, como no Tibia:
+// é a diferença de ângulo que faz um prédio parecer casa em vez de muro.
+export const CORES_TELHADO = ['turquesa', 'telha', 'ardosia', 'madeira'];
+
+// Cada tipo de estabelecimento tem telhado próprio: dá para achar o banco
+// de longe, sem precisar ler a placa.
+export const TELHADO_POR_TIPO = {
+  banco: 'ardosia', prefeitura: 'ardosia', templo: 'turquesa',
+  biblioteca: 'turquesa', armaria: 'telha', botica: 'turquesa',
+  taverna: 'madeira', estacao: 'madeira',
+};
+
 export function buildWorld() {
   const rng = makeRng(WORLD_SEED);
   const ri = (a, b) => a + Math.floor(rng() * (b - a + 1));
@@ -98,6 +110,9 @@ export function buildWorld() {
       // separa "uma casa qualquer" de "a armaria" sem precisar de arte nova.
       tipo: opts.tipo || null,
       nome: opts.nome || null,
+      telhado: opts.telhado
+        || TELHADO_POR_TIPO[opts.tipo]
+        || escolha(CORES_TELHADO),
     };
     // Janelas na faixa da base, em toda coluna que não é porta nem quina.
     for (let i = 1; i < w - 1; i++) if (i !== porta && rng() < 0.75) b.janelas.push(i);

@@ -88,11 +88,12 @@ const SPRITES = ['soldier', 'guard', 'princess', 'villager', 'slime', 'bat', 'sn
   // Variantes vestidas geradas por tools/vestir-npcs.py — o pacote LPC
   // incluído traz só o corpo, sem as camadas de cabelo e roupa.
   'villager_a', 'villager_b', 'villager_c', 'guard_a', 'guard_b', 'soldier_a',
-  'princess_a', 'princess_b', 'princess_c'];
+  'princess_a', 'princess_b', 'princess_c', 'roof'];
 const IMG = {};
 
-// Índice das peças de fachada em city.png, gerado por tools/gerar-atlas-cidade.py
+// Índices dos atlas gerados: city.png (fachadas) e roof.png (telhados).
 let CITY = null;
+let ROOF = null;
 
 function carregarSprites() {
   const imagens = SPRITES.map((nome) => new Promise((resolve) => {
@@ -107,7 +108,11 @@ function carregarSprites() {
     .then((r) => r.json())
     .then((j) => { CITY = j; })
     .catch(() => { console.warn('city.json ausente: prédios não serão desenhados'); });
-  return Promise.all([...imagens, indice]);
+  const telhados = fetch('/assets/roof.json')
+    .then((r) => r.json())
+    .then((j) => { ROOF = j; })
+    .catch(() => { console.warn('roof.json ausente: telhados não serão desenhados'); });
+  return Promise.all([...imagens, indice, telhados]);
 }
 
 // ---------------------------------------------------------
@@ -926,37 +931,53 @@ function peca(variante, nome, dx, dy) {
   ds(IMG.city, p[0], p[1], p[2], p[3], dx, dy, p[2], p[3]);
 }
 
+// Desenha uma peça do atlas de telhados.
+function pecaTelhado(cor, nome, dx, dy) {
+  if (!ROOF) return;
+  const c = ROOF.cores[cor] || ROOF.cores.telha;
+  const p = c && c[nome];
+  if (!p) return;
+  ds(IMG.roof, p[0], p[1], p[2], p[3], dx, dy, p[2], p[3]);
+}
+
 // Um prédio é montado de cima para baixo:
-//   linha 0        topo (ameias)
-//   linhas 1..h-4  parede de tijolo
-//   linha h-3      cornija
-//   linhas h-2,h-1 embasamento (porta, janelas ou pedra lisa)
-// As colunas das pontas levam cantoneira.
+//   linhas 0..h-3  TELHADO visto de cima (cumeeira no alto, beiral embaixo)
+//   linhas h-2,h-1 parede térrea, com porta e janelas
+//
+// Essa é a estrutura de um prédio de Tibia: a maior parte do que se vê é
+// telhado, e só a faixa da frente mostra parede. Desenhar a fachada
+// inteira de frente, como fazíamos, dava a leitura de muro.
+//
+// A cornija saiu de cena: como faixa de tijolo colorido entre o telhado e
+// a pedra, ela virava uma tarja que não combinava com nenhum dos dois. O
+// beiral do próprio telhado já faz a transição.
 function desenharPredio(b) {
   const v = b.v;
+  const linhasTelhado = b.h - 2;
+
+  for (let cy = 0; cy < linhasTelhado; cy++) {
+    for (let cx = 0; cx < b.w; cx++) {
+      const esq = cx === 0, dir = cx === b.w - 1;
+      const ultima = cy === linhasTelhado - 1;
+      let nome;
+      if (ultima && esq) nome = 'canto_esq';
+      else if (ultima && dir) nome = 'canto_dir';
+      else if (ultima) nome = 'beira_baixo';
+      else if (cy === 0) nome = 'cume';
+      else if (esq) nome = 'beira_esq';
+      else if (dir) nome = 'beira_dir';
+      else nome = 'campo';
+      pecaTelhado(b.telhado, nome, (b.x + cx) * TILE, (b.y + cy) * TILE);
+    }
+  }
+
   for (let cx = 0; cx < b.w; cx++) {
     const borda = cx === 0 || cx === b.w - 1;
     const px = (b.x + cx) * TILE;
-
-    peca(v, borda ? 'canto_topo' : 'topo', px, b.y * TILE);
-
-    // A última linha de tijolo antes da cornija leva as janelas do andar
-    // de cima; as de baixo ficam lisas, senão a fachada vira uma grade.
-    const linhaJanela = b.h - 4;
-    for (let cy = 1; cy <= b.h - 4; cy++) {
-      let nome = 'parede';
-      if (borda) nome = 'canto';
-      else if (cy === linhaJanela && b.altas && b.altas.includes(cx)) nome = 'parede_janela';
-      peca(v, nome, px, (b.y + cy) * TILE);
-    }
-
-    peca(v, borda ? 'canto' : 'cornija', px, (b.y + b.h - 3) * TILE);
-
-    const baseY = (b.y + b.h - 2) * TILE;
     let nomeBase = 'base';
     if (cx === b.porta) nomeBase = 'porta';
     else if (!borda && b.janelas.includes(cx)) nomeBase = 'base_janela';
-    peca(v, nomeBase, px, baseY);
+    peca(v, nomeBase, px, (b.y + b.h - 2) * TILE);
   }
 
   if (b.tipo) desenharLetreiro(b);

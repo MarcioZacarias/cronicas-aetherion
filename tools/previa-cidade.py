@@ -39,6 +39,8 @@ def main():
     grave, chest, tree = carregar('grave'), carregar('chest'), carregar('tree')
     city = carregar('city')
     indice = json.loads((ASSETS / 'city.json').read_text(encoding='utf-8'))['variantes']
+    roof = carregar('roof')
+    ind_roof = json.loads((ASSETS / 'roof.json').read_text(encoding='utf-8'))['cores']
     humanos = {n: carregar(n) for n in ('guard', 'princess', 'villager',
                                     'guard_a', 'guard_b', 'villager_a', 'villager_b',
                                     'villager_c', 'princess_a', 'princess_b', 'princess_c')}
@@ -113,6 +115,13 @@ def main():
         sx, sy, sw, sh = p
         img.alpha_composite(city.crop((sx, sy, sx + sw, sy + sh)), (cx, cy))
 
+    def peca_telhado(cor, nome, cx, cy):
+        p = ind_roof.get(cor, ind_roof['telha']).get(nome)
+        if not p:
+            return
+        sx, sy, sw, sh = p
+        img.alpha_composite(roof.crop((sx, sy, sx + sw, sy + sh)), (cx, cy))
+
 
     CORES = {
         'armaria': ((140, 59, 46), (240, 208, 96)), 'botica': ((61, 122, 82), (143, 224, 160)),
@@ -150,20 +159,23 @@ def main():
             img.alpha_composite(tree.crop((0, 0, 96, 144)), (i * T - 32, j * T - 112))
         elif tipo == 'predio':
             b = a
+            linhas_telhado = b['h'] - 2
+            for cy in range(linhas_telhado):
+                for cxi in range(b['w']):
+                    esq, dire = cxi == 0, cxi == b['w'] - 1
+                    ultima = cy == linhas_telhado - 1
+                    if ultima and esq: nome = 'canto_esq'
+                    elif ultima and dire: nome = 'canto_dir'
+                    elif ultima: nome = 'beira_baixo'
+                    elif cy == 0: nome = 'cume'
+                    elif esq: nome = 'beira_esq'
+                    elif dire: nome = 'beira_dir'
+                    else: nome = 'campo'
+                    peca_telhado(b.get('telhado', 'telha'), nome,
+                                 (b['x'] - x0 + cxi) * T, (b['y'] - y0 + cy) * T)
             for cxi in range(b['w']):
                 borda = cxi == 0 or cxi == b['w'] - 1
                 px = (b['x'] - x0 + cxi) * T
-                peca(b['v'], 'canto_topo' if borda else 'topo', px, (b['y'] - y0) * T)
-                linha_janela = b['h'] - 4
-                for cy in range(1, b['h'] - 3):
-                    if borda:
-                        nome = 'canto'
-                    elif cy == linha_janela and cxi in b.get('altas', []):
-                        nome = 'parede_janela'
-                    else:
-                        nome = 'parede'
-                    peca(b['v'], nome, px, (b['y'] - y0 + cy) * T)
-                peca(b['v'], 'canto' if borda else 'cornija', px, (b['y'] - y0 + b['h'] - 3) * T)
                 nome = 'base'
                 if cxi == b['porta']:
                     nome = 'porta'
