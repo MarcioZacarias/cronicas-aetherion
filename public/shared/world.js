@@ -274,11 +274,15 @@ export function buildWorld() {
       predio(m, bx, by, MODULO_W, PREDIO_H, variante, { emReserva: true, tipo, nome });
     }
 
-    objeto(m, 'poco', 16, 22);
-    objeto(m, 'lampiao', 11, 22); objeto(m, 'lampiao', 20, 22);
-    objeto(m, 'engradado', 8, 22); objeto(m, 'barril', 9, 22);
-    objeto(m, 'barril', 22, 22);
-    objeto(m, 'banca', 10, 22); objeto(m, 'banca', 19, 22);
+    // Props de 2 tiles (banca) precisam de folga: eles ocupam 1 tile de
+    // colisão mas desenham 2, e colados escondem o vizinho.
+    // A rua principal divide espaço com Toren (8,21) e Mira (19,21): o
+    // mobiliário é posicionado em volta deles, não por cima.
+    objeto(m, 'engradado', 5, 21); objeto(m, 'lampiao', 6, 21);
+    objeto(m, 'banca', 10, 21);
+    objeto(m, 'arbusto', 13, 21);
+    objeto(m, 'poco', 16, 21);
+    objeto(m, 'lampiao', 21, 21); objeto(m, 'barril', 22, 21);
 
     T[28][4] = 4; T[4][35] = 4;
     m.holeAnchor = { x: 17, y: 3 };
@@ -384,11 +388,11 @@ export function buildWorld() {
     }
     objeto(m, 'arvorinha', 22, 22); objeto(m, 'arvorinha', 36, 22);
     objeto(m, 'arvorinha', 22, 26); objeto(m, 'arvorinha', 36, 26);
-    for (let i = 0; i < 5; i++) objeto(m, 'banca', 39 + i * 2, 22);
-    for (let i = 0; i < 4; i++) objeto(m, 'banca', 40 + i * 2, 26);
+    for (let i = 0; i < 4; i++) objeto(m, 'banca', 39 + i * 3, 22);
+    for (let i = 0; i < 3; i++) objeto(m, 'banca', 40 + i * 3, 26);
+    objeto(m, 'carroca', 43, 24);
     objeto(m, 'engradado', 39, 24); objeto(m, 'barril', 40, 24);
-    objeto(m, 'engradado', 47, 24); objeto(m, 'barril', 46, 24);
-    objeto(m, 'engradado', 43, 20); objeto(m, 'barril', 44, 20);
+    objeto(m, 'engradado', 47, 24); objeto(m, 'barril', 47, 20);
     objeto(m, 'barril', 39, 28); objeto(m, 'engradado', 47, 28);
     // Lampiões ao longo da avenida.
     for (let y = 7; y <= 35; y += 7) { objeto(m, 'lampiao', 27, y); objeto(m, 'lampiao', 32, y); }
@@ -398,8 +402,7 @@ export function buildWorld() {
     objeto(m, 'banco', 27, 20); objeto(m, 'banco', 30, 20);
     objeto(m, 'banco', 27, 28); objeto(m, 'banco', 30, 28);
     objeto(m, 'lampiao', 26, 24); objeto(m, 'lampiao', 31, 24);
-    // Feira encostada na praça, ligando-a ao mercado.
-    objeto(m, 'banca', 37, 22); objeto(m, 'banca', 37, 26);
+    objeto(m, 'canteiro', 25, 24); objeto(m, 'canteiro2', 33, 24);
 
     // ===== Fora das muralhas =====
     // Estrada do portão sul até o porto.

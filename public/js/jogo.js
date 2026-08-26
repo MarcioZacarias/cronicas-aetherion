@@ -88,7 +88,7 @@ const SPRITES = ['soldier', 'guard', 'princess', 'villager', 'slime', 'bat', 'sn
   // Variantes vestidas geradas por tools/vestir-npcs.py — o pacote LPC
   // incluído traz só o corpo, sem as camadas de cabelo e roupa.
   'villager_a', 'villager_b', 'villager_c', 'guard_a', 'guard_b', 'soldier_a',
-  'princess_a', 'princess_b', 'princess_c', 'lpc-sets', 'lpc-telhados'];
+  'princess_a', 'princess_b', 'princess_c', 'lpc-sets', 'lpc-telhados', 'lpc-props'];
 const IMG = {};
 
 // Índices dos atlas: city.png (portas/janelas recortadas das fachadas) e
@@ -97,6 +97,7 @@ const IMG = {};
 let CITY = null;
 let SETS = null;
 let TELHADOS = null;
+let PROPS = null;
 
 function carregarSprites() {
   const imagens = SPRITES.map((nome) => new Promise((resolve) => {
@@ -119,7 +120,11 @@ function carregarSprites() {
     .then((r) => r.json())
     .then((j) => { TELHADOS = j; })
     .catch(() => { console.warn('lpc-telhados.json ausente: telhados não serão desenhados'); });
-  return Promise.all([...imagens, indice, telhados, catTelhados]);
+  const catProps = fetch('/assets/lpc-props.json')
+    .then((r) => r.json())
+    .then((j) => { PROPS = j; })
+    .catch(() => { console.warn('lpc-props.json ausente: mobiliário volta ao desenho procedural'); });
+  return Promise.all([...imagens, indice, telhados, catTelhados, catProps]);
 }
 
 // ---------------------------------------------------------
@@ -816,10 +821,14 @@ function render(dt) {
       if (t === 19) chao = indiceProps().get(`${x},${y}`)?.chao ?? 0;
       else if (t === 17) chao = 1;
 
-      if (chao === 5) ds(IMG.dirt2, (v % 3) * 32, 160, 32, 32, x * TILE, y * TILE);
-      else if (chao === 18) desenharCalcamento(x, y, v);   // usa o piso LPC quando disponível
-      else if (chao === 1 || chao === 12) ds(IMG.dirt, (v % 3) * 32, 160, 32, 32, x * TILE, y * TILE);
-      else ds(IMG.grass, (v % 3) * 32, 160, 32, 32, x * TILE, y * TILE);
+      if (chao === 18) {
+        desenharCalcamento(x, y, v);
+      } else if (!desenharTerreno(M, x, y, familiaTerreno(chao))) {
+        // Reserva: sprites chapados de antes, se o atlas não carregou.
+        if (chao === 5) ds(IMG.dirt2, (v % 3) * 32, 160, 32, 32, x * TILE, y * TILE);
+        else if (chao === 1 || chao === 12) ds(IMG.dirt, (v % 3) * 32, 160, 32, 32, x * TILE, y * TILE);
+        else ds(IMG.grass, (v % 3) * 32, 160, 32, 32, x * TILE, y * TILE);
+      }
 
       if (t === 7) ds(IMG.rock, 0, 0, 32, 32, x * TILE, y * TILE);
       if (t === 15) ds(IMG.grave, 0, 0, 32, 32, x * TILE, y * TILE);
@@ -936,6 +945,73 @@ function peca(variante, nome, dx, dy) {
   const p = v && v[nome];
   if (!p) return;
   ds(IMG.city, p[0], p[1], p[2], p[3], dx, dy, p[2], p[3]);
+}
+
+
+// ---------------------------------------------------------
+// Terreno com transição
+//
+// Cada tile de chão pertence a uma família. Onde duas se encontram, quem
+// tem PRECEDÊNCIA maior desenha a peça de transição — e essa peça já
+// contém as duas texturas (a de cima e a de baixo), então cobre o tile
+// inteiro. Sem isso, grama e terra se encostam em linha reta.
+// ---------------------------------------------------------
+// calcada entra com a maior precedência: ela nunca faz transição com
+// terreno natural (é chão de cidade, com borda própria).
+const PRECEDENCIA = { agua: 0, areia: 1, terra: 2, grama: 3, calcada: 4 };
+const PARES_TERRENO = {
+  'grama|terra': 'terreno:grama_terra',
+  'grama|areia': 'terreno:grama_areia',
+  'areia|agua': 'terreno:areia_agua',
+  'terra|areia': 'terreno:terra_areia',
+};
+const PREENCHIMENTO = {
+  grama: ['terreno:grama_terra', 'meio'],
+  terra: ['terreno:terra_areia', 'meio'],
+  areia: ['terreno:areia_agua', 'meio'],
+};
+
+function familiaTerreno(t) {
+  if (t === 2) return 'agua';
+  if (t === 5) return 'areia';
+  if (t === 1 || t === 12) return 'terra';
+  if (t === 18) return 'calcada';
+  return 'grama';   // grama e tudo que se apoia nela (árvore, rocha, túmulo)
+}
+
+function familiaEm(M, x, y) {
+  if (x < 0 || y < 0 || x >= M.w || y >= M.h) return null;
+  return familiaTerreno(M.tiles[y][x]);
+}
+
+// Desenha o chão de um tile. Devolve false se não soube (o chamador
+// então usa o desenho antigo por sprite).
+function desenharTerreno(M, x, y, fam) {
+  if (!SETS) return false;
+  const preench = PREENCHIMENTO[fam];
+  if (!preench) return false;
+
+  const viz = {
+    n: familiaEm(M, x, y - 1), s: familiaEm(M, x, y + 1),
+    w: familiaEm(M, x - 1, y), e: familiaEm(M, x + 1, y),
+  };
+  // Só transiciona contra família de precedência MENOR; a de cima é que
+  // desenha a borda, senão as duas desenhariam e uma apagaria a outra.
+  const menores = {};
+  for (const [dir, f] of Object.entries(viz)) {
+    if (f && f !== fam && PRECEDENCIA[f] < PRECEDENCIA[fam]) menores[dir] = f;
+  }
+  const dirs = Object.keys(menores);
+  if (!dirs.length) return pecaSet(preench[0], preench[1], x * TILE, y * TILE);
+
+  const alvo = menores[dirs[0]];
+  const chave = PARES_TERRENO[`${fam}|${alvo}`];
+  if (!chave || !SETS.conjuntos[chave]) {
+    return pecaSet(preench[0], preench[1], x * TILE, y * TILE);
+  }
+  const v = dirs.includes('n') ? 'n' : (dirs.includes('s') ? 's' : '');
+  const h = dirs.includes('w') ? 'w' : (dirs.includes('e') ? 'e' : '');
+  return pecaSet(chave, (v + h) || 'meio', x * TILE, y * TILE);
 }
 
 // Qual das nove fatias usar para a célula (cx,cy) de um retângulo w x h.
@@ -1117,6 +1193,18 @@ function desenharEmblema(tipo, cx, cy, t) {
 // Mobiliário desenhado com primitivas — mesma técnica que o jogo já usava
 // para placas e estantes. Evita depender de arte que não existe no pacote.
 function desenharProp(p) {
+  // Arte de verdade primeiro. O desenho com retângulos abaixo era o
+  // remendo de quando não havia mobiliário no pacote, e fica como reserva.
+  if (PROPS && PROPS.props[p.t]) {
+    const a = PROPS.props[p.t];
+    const [tw, th] = a.tiles;
+    // Ancorado pela base: um poste de 2 tiles cresce para cima a partir
+    // do tile que ele ocupa, como uma árvore.
+    ds(IMG['lpc-props'], a.x, a.y, a.w, a.h,
+      p.x * TILE, (p.y - (th - 1)) * TILE, a.w, a.h);
+    return;
+  }
+
   const bx = (p.x * TILE - cam.x) * ZOOM, by = (p.y * TILE - cam.y) * ZOOM;
   const S = TILE * ZOOM;
   const r = (x, y, w, h, cor) => { ctx.fillStyle = cor; ctx.fillRect(bx + S * x, by + S * y, S * w, S * h); };

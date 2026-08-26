@@ -72,6 +72,68 @@ PLANO = [
     ]),
 ]
 
+# ---------------------------------------------------------
+# Terreno: transições entre PARES
+#
+# terrain-map-v8.tsx não descreve "terreno contra vazio" como roofs e
+# bricks: ali TODO tile é uma mistura de dois terrenos, canto a canto
+# ("5,5,0,0" = grama em cima, terra embaixo). Ou seja, a transição é
+# específica do par, e é justamente isso que faz grama e terra deixarem
+# de se encostar em linha reta.
+#
+# (nome no jogo, terreno de cima, terreno de baixo)
+# ---------------------------------------------------------
+TERRENO_TSX = 'lpc-victorian-preview-see-readme/terrain-map-v8.tsx'
+PARES_TERRENO = [
+    ('grama_terra', 'Grass', 'Dirt_Brown'),
+    ('grama_areia', 'Grass', 'Sand'),
+    ('areia_agua', 'Sand', 'Water'),
+    ('terra_areia', 'Dirt_Brown', 'Sand'),
+    ('grama_pedra', 'Grass', 'Gravel_1'),
+]
+
+# Assinatura de cantos de cada fatia, para o par (A sobre B).
+# A ordem do Tiled é tl,tr,bl,br.
+ASSINATURA_PAR = {
+    'meio': ('A', 'A', 'A', 'A'),
+    'n':    ('B', 'B', 'A', 'A'),
+    's':    ('A', 'A', 'B', 'B'),
+    'w':    ('B', 'A', 'B', 'A'),
+    'e':    ('A', 'B', 'A', 'B'),
+    'nw':   ('B', 'B', 'B', 'A'),
+    'ne':   ('B', 'B', 'A', 'B'),
+    'sw':   ('B', 'A', 'B', 'B'),
+    'se':   ('A', 'B', 'B', 'B'),
+}
+
+
+def importar_terrenos(base):
+    caminho = base / TERRENO_TSX
+    if not caminho.exists():
+        return [], ['terreno: terrain-map-v8.tsx ausente']
+    colunas, fonte, terrenos, cantos = ler_tsx(caminho)
+    porNome = {n: i for i, (n, _) in enumerate(terrenos)}
+    folha = Image.open(caminho.parent / fonte).convert('RGBA')
+    saida, faltando = [], []
+    for chave, nomeA, nomeB in PARES_TERRENO:
+        if nomeA not in porNome or nomeB not in porNome:
+            faltando.append(f'terreno/{chave} (terreno inexistente)')
+            continue
+        a, b = str(porNome[nomeA]), str(porNome[nomeB])
+        achados = {}
+        for tid, quatro in cantos.items():
+            marcado = tuple('A' if c == a else ('B' if c == b else '?') for c in quatro)
+            if '?' in marcado:
+                continue
+            for fatia, assinatura in ASSINATURA_PAR.items():
+                if marcado == assinatura and fatia not in achados:
+                    achados[fatia] = tid
+        if len(achados) < 9:
+            faltando.append(f'terreno/{chave} (só {len(achados)}/9 fatias)')
+            continue
+        saida.append((chave, folha, colunas, achados))
+    return saida, faltando
+
 # Referências para batizar um conjunto pela cor que ele REALMENTE tem.
 # Precisa cobrir os tons ESCUROS separadamente: sem eles, marrom-escuro,
 # vinho e verde-musgo caem todos em "preto" e viram preto2, preto3...
@@ -162,6 +224,81 @@ def importar_telhados(base, atlas_saida):
     return saida
 
 
+# ---------------------------------------------------------
+# Mobiliário urbano
+#
+# Substitui os props que eu desenhava com retângulos de canvas. Cada
+# entrada é (nome, folha, x, y, largura, altura) em tiles.
+# ---------------------------------------------------------
+PROPS = [
+    # mercado — a barraca com balcão e mercadoria, não só a lona
+    ('banca',     'lpc-victorian-decoration/victorian-market.png',   0,  4, 3, 4),
+    ('banca2',    'lpc-victorian-decoration/victorian-market.png',   0, 22, 4, 3),
+    ('banco',     'lpc-victorian-decoration/victorian-market.png',   0, 14, 2, 1),
+    ('banco2',    'lpc-victorian-decoration/victorian-market.png',   4, 14, 2, 1),
+    ('carroca',   'lpc-victorian-decoration/victorian-market.png',   4, 10, 3, 2),
+    ('lixeira',   'lpc-victorian-decoration/victorian-market.png',   4,  8, 1, 1),
+    # jardim
+    ('fonte',     'lpc-victorian-decoration/victorian-garden.png',   6,  4, 2, 2),
+    ('arvorinha', 'lpc-victorian-decoration/victorian-garden.png',   2, 10, 1, 2),
+    ('arbusto',   'lpc-victorian-decoration/victorian-garden.png',   4, 16, 1, 1),
+    ('canteiro',  'lpc-victorian-decoration/victorian-garden.png',   8, 22, 2, 1),
+    ('canteiro2', 'lpc-victorian-decoration/victorian-garden.png',  10, 22, 2, 1),
+    ('urna',      'lpc-victorian-decoration/victorian-garden.png',   0,  8, 1, 1),
+    # do pacote base
+    ('barril',    'lpc_base_assets/tiles__barrel.png',               0,  0, 1, 1),
+    ('engradado', 'lpc_base_assets/tiles__chests.png',               0,  0, 1, 1),
+    ('poco',      'lpc_base_assets/tiles__buckets.png',              0,  0, 1, 1),
+]
+
+
+# Poste e luminária ficam em REGIÕES DIFERENTES da folha: um recorte
+# contíguo de 1x2 pega duas cabeças, não um poste completo. Estes são
+# montados empilhando dois tiles distintos.
+PROPS_COMPOSTOS = [
+    # (nome, folha, [(x,y) de baixo para cima])
+    ('lampiao',  'lpc-victorian-decoration/victorian-streets.png', [(0, 7), (0, 16)]),
+    ('lampiao2', 'lpc-victorian-decoration/victorian-streets.png', [(2, 7), (2, 16)]),
+]
+
+
+def importar_compostos(base):
+    itens, faltando = [], []
+    for nome, rel, pilha in PROPS_COMPOSTOS:
+        caminho = base / rel
+        if not caminho.exists():
+            faltando.append(f'prop/{nome} ({rel} ausente)')
+            continue
+        folha = Image.open(caminho).convert('RGBA')
+        alt = len(pilha)
+        im = Image.new('RGBA', (T, alt * T), (0, 0, 0, 0))
+        # A lista vem de baixo para cima; desenhamos de cima para baixo.
+        for i, (x, y) in enumerate(reversed(pilha)):
+            im.alpha_composite(folha.crop((x * T, y * T, (x + 1) * T, (y + 1) * T)), (0, i * T))
+        itens.append((nome, im, 1, alt))
+    return itens, faltando
+
+
+def importar_props(base):
+    itens, faltando = [], []
+    for nome, rel, x, y, w, h in PROPS:
+        caminho = base / rel
+        if not caminho.exists():
+            faltando.append(f'prop/{nome} ({rel} ausente)')
+            continue
+        folha = Image.open(caminho).convert('RGBA')
+        if (x + w) * T > folha.width or (y + h) * T > folha.height:
+            faltando.append(f'prop/{nome} (recorte fora da folha)')
+            continue
+        rec = folha.crop((x * T, y * T, (x + w) * T, (y + h) * T))
+        import numpy as np
+        if (np.array(rec)[:, :, 3] > 40).mean() < 0.05:
+            faltando.append(f'prop/{nome} (recorte vazio)')
+            continue
+        itens.append((nome, rec, w, h))
+    return itens, faltando
+
+
 def main():
     base = Path(sys.argv[1]) if len(sys.argv) > 1 else Path('assets-lpc')
     if not base.exists():
@@ -187,6 +324,12 @@ def main():
                 continue
             conjuntos.append((prefixo, nome, folha, colunas, achados))
 
+    # Terreno entra na mesma fita, com o prefixo "terreno:".
+    terrenos_pares, faltas_terreno = importar_terrenos(base)
+    faltando.extend(faltas_terreno)
+    for chave, folha, colunas, achados in terrenos_pares:
+        conjuntos.append(('terreno', chave, folha, colunas, achados))
+
     if not conjuntos:
         print('nada importado')
         return
@@ -204,7 +347,9 @@ def main():
             recortes[fatia] = pedaco
             atlas.paste(pedaco, (col * T, linha * T))
 
-        cor = nomear_por_cor(recortes['meio'])
+        # Terreno já chega com nome descritivo do par; só telhado, piso e
+        # parede precisam ser batizados pela cor medida.
+        cor = nome if prefixo == 'terreno' else nomear_por_cor(recortes['meio'])
         chave = f'{prefixo}:{cor}'
         # Duas folhas podem cair na mesma cor; numera para não colidir.
         n = 2
@@ -245,6 +390,27 @@ def main():
         print(f'lpc-telhados.png  {tel.width}x{tel.height}  '
               f'{len(tel_indice)} telhados de {TELHADO_W}x{TELHADO_H}: '
               f'{", ".join(tel_indice)}')
+
+    # ---- mobiliário urbano ----
+    props, faltas_props = importar_props(base)
+    compostos, faltas_comp = importar_compostos(base)
+    props = compostos + props
+    faltando.extend(faltas_props + faltas_comp)
+    if props:
+        # Empacota lado a lado numa fita, alinhada ao tile.
+        largura = sum(w for _, _, w, _ in props)
+        altura = max(h for _, _, _, h in props)
+        folha = Image.new('RGBA', (largura * T, altura * T), (0, 0, 0, 0))
+        pIndice, ox = {}, 0
+        for nome, rec, w, h in props:
+            folha.paste(rec, (ox * T, 0))
+            pIndice[nome] = {'x': ox * T, 'y': 0, 'w': w * T, 'h': h * T, 'tiles': [w, h]}
+            ox += w
+        folha.save(ASSETS / 'lpc-props.png')
+        (ASSETS / 'lpc-props.json').write_text(
+            json.dumps({'tile': T, 'props': pIndice}, indent=2), encoding='utf-8')
+        print(f'lpc-props.png  {folha.width}x{folha.height}  {len(pIndice)} props: '
+              f'{", ".join(pIndice)}')
 
     (ASSETS / 'lpc-sets.json').write_text(
         json.dumps({'tile': T, 'ordem': FATIAS, 'conjuntos': indice}, indent=2),

@@ -41,6 +41,8 @@ def main():
     indice = json.loads((ASSETS / 'city.json').read_text(encoding='utf-8'))['variantes']
     sets_img = carregar('lpc-sets')
     ind_sets = json.loads((ASSETS / 'lpc-sets.json').read_text(encoding='utf-8'))['conjuntos']
+    props_img = carregar('lpc-props')
+    ind_props = json.loads((ASSETS / 'lpc-props.json').read_text(encoding='utf-8'))['props']
     tel_img = carregar('lpc-telhados')
     tel_meta = json.loads((ASSETS / 'lpc-telhados.json').read_text(encoding='utf-8'))
     ind_tel, MOD_W = tel_meta['telhados'], tel_meta['modulo'][0]
@@ -79,6 +81,54 @@ def main():
         img.alpha_composite(sets_img.crop((sx, sy, sx + sw, sy + sh)), (cx, cy))
         return True
 
+
+    # calcada entra com a maior precedência: ela nunca faz transição
+    # com terreno natural (é chão de cidade, com borda própria).
+    PRECEDENCIA = {'agua': 0, 'areia': 1, 'terra': 2, 'grama': 3, 'calcada': 4}
+    PARES_TERRENO = {
+        'grama|terra': 'terreno:grama_terra', 'grama|areia': 'terreno:grama_areia',
+        'areia|agua': 'terreno:areia_agua', 'terra|areia': 'terreno:terra_areia',
+    }
+    PREENCH = {'grama': 'terreno:grama_terra', 'terra': 'terreno:terra_areia',
+               'areia': 'terreno:areia_agua'}
+
+    def familia(t):
+        if t == 2: return 'agua'
+        if t == 5: return 'areia'
+        if t in (1, 12): return 'terra'
+        if t == 18: return 'calcada'
+        return 'grama'
+
+    def fam_em(i, j):
+        if 0 <= j < len(d['tiles']) and 0 <= i < len(d['tiles'][0]):
+            return familia(d['tiles'][j][i])
+        return None
+
+    def terreno(i, j, px, py):
+        fam = familia(chao_de(i, j))
+        if fam not in PREENCH:
+            return False
+        viz = {'n': fam_em(i, j - 1), 's': fam_em(i, j + 1),
+               'w': fam_em(i - 1, j), 'e': fam_em(i + 1, j)}
+        menores = {k: v for k, v in viz.items()
+                   if v and v != fam and PRECEDENCIA[v] < PRECEDENCIA[fam]}
+        if not menores:
+            return peca_set(PREENCH[fam], 'meio', px, py)
+        chave = PARES_TERRENO.get(fam + '|' + list(menores.values())[0])
+        if not chave or chave not in ind_sets:
+            return peca_set(PREENCH[fam], 'meio', px, py)
+        v = 'n' if 'n' in menores else ('s' if 's' in menores else '')
+        h = 'w' if 'w' in menores else ('e' if 'e' in menores else '')
+        return peca_set(chave, (v + h) or 'meio', px, py)
+
+    def chao_de(i, j):
+        t = d['tiles'][j][i]
+        if t == 19:
+            return chao_de_prop.get((x0 + i, y0 + j), 0)
+        if t == 17:
+            return 1
+        return t
+
     # ---- chão ----
     for j, linha in enumerate(d['tiles']):
         for i, t in enumerate(linha):
@@ -94,15 +144,16 @@ def main():
                 chao = chao_de_prop.get((x, y), 0)
             elif t == 17:
                 chao = 1
-            if chao == 5:
-                por(dirt2, px, py, (v % 3) * T, 160)
-            elif chao == 18:
+            if chao == 18:
                 if not peca_set('piso:cinza', 'meio', px, py):
                     calcamento(px, py, x, y, v)
-            elif chao in (1, 12):
-                por(dirt, px, py, (v % 3) * T, 160)
-            else:
-                por(grass, px, py, (v % 3) * T, 160)
+            elif not terreno(i, j, px, py):
+                if chao == 5:
+                    por(dirt2, px, py, (v % 3) * T, 160)
+                elif chao in (1, 12):
+                    por(dirt, px, py, (v % 3) * T, 160)
+                else:
+                    por(grass, px, py, (v % 3) * T, 160)
             if t == 7: por(rock, px, py)
             if t == 15: por(grave, px, py)
             if t == 4: por(chest, px, py)
@@ -194,7 +245,13 @@ def main():
             r = lambda fx, fy, fw, fh, c: dr.rectangle(
                 [px + T * fx, py + T * fy, px + T * (fx + fw), py + T * (fy + fh)], fill=c)
             k = p['t']
-            if k == '_vazio':
+            if k in ind_props:
+                a2 = ind_props[k]
+                tw, th = a2['tiles']
+                img.alpha_composite(
+                    props_img.crop((a2['x'], a2['y'], a2['x'] + a2['w'], a2['y'] + a2['h'])),
+                    (px, py - (th - 1) * T))
+            elif k == '_vazio':
                 pass
             elif k == 'fonte':
                 L, A = T * p.get('w', 2), T * p.get('h', 2)
