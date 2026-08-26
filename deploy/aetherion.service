@@ -40,7 +40,8 @@ ProtectControlGroups=true
 RestrictNamespaces=true
 RestrictSUIDSGID=true
 LockPersonality=true
-MemoryDenyWriteExecute=true
+# MemoryDenyWriteExecute NÃO pode ser usado aqui: o JIT do V8 precisa
+# marcar memória como executável e o processo morre com SIGTRAP no boot.
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 # Nada em disco precisa ser escrito: o estado todo vive no banco.
 ReadOnlyPaths=/var/www/aetherion

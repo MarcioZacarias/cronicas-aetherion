@@ -15,16 +15,62 @@ const charId = new URLSearchParams(location.search).get('char');
 if (!charId) location.href = '/personagens.html';
 
 // ---------------------------------------------------------
+// Mundo
+// Declarado antes do canvas porque o cálculo de zoom depende do tamanho
+// do mapa atual, e o primeiro resize() roda na carga do módulo.
+// ---------------------------------------------------------
+const MAPS = buildWorld();
+let mapaAtual = 'over';
+
+// ---------------------------------------------------------
 // Canvas
 // ---------------------------------------------------------
 const canvas = $('game');
 const ctx = canvas.getContext('2d');
 let ZOOM = 2;
 
+// Escala só em números inteiros: em 2.5x o pixel art fica com linhas de
+// espessura desigual e a arte "treme" ao andar.
+const ZOOM_MAX = 4;
+
+// Quantos tiles cabem na menor dimensão da tela. O Tibia clássico mostra
+// 11 na vertical; 16 dá um campo de visão parecido com folga para telas
+// largas. Aumentar este número deixa tudo MENOR.
+const TILES_NA_TELA = 16;
+
+let zoomManual = 0; // 0 = automático
+try {
+  zoomManual = Number(localStorage.getItem('aeth_zoom')) || 0;
+} catch { zoomManual = 0; } // navegador com storage bloqueado
+
+const ZOOM_MIN = 1;
+
+function zoomAutomatico() {
+  const desejado = Math.round(Math.min(canvas.width, canvas.height) / (TILE * TILES_NA_TELA));
+  return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, desejado));
+}
+
+function aplicarZoom() {
+  ZOOM = zoomManual ? Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoomManual)) : zoomAutomatico();
+  const el = $('zoomlvl');
+  if (el) el.textContent = `${ZOOM}x${zoomManual ? '' : ' auto'}`;
+}
+
+function mudarZoom(delta) {
+  const atual = ZOOM;
+  const novo = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, atual + delta));
+  if (novo === atual) return;
+  // Voltar ao valor que o automático escolheria significa "deixe automático",
+  // para a preferência não congelar quando a tela mudar de tamanho.
+  zoomManual = novo === zoomAutomatico() ? 0 : novo;
+  try { localStorage.setItem('aeth_zoom', String(zoomManual)); } catch { /* sem storage */ }
+  aplicarZoom();
+}
+
 function resize() {
   canvas.width = innerWidth;
   canvas.height = innerHeight;
-  ZOOM = Math.max(2, Math.round(Math.min(canvas.width, canvas.height) / 320));
+  aplicarZoom();
   ctx.imageSmoothingEnabled = false;
 }
 addEventListener('resize', resize);
@@ -53,8 +99,6 @@ function carregarSprites() {
 // ---------------------------------------------------------
 // Estado
 // ---------------------------------------------------------
-const MAPS = buildWorld();
-let mapaAtual = 'over';
 let eu = null;                 // estado privado vindo de 'you'
 let meuId = null;
 const ents = new Map();        // id -> entidade interpolada
@@ -405,6 +449,8 @@ addEventListener('keydown', (ev) => {
   else if (ev.key === 'e' || ev.key === 'E') enviar({ t: 'spell' });
   else if (ev.key === 'Escape') { enviar({ t: 'stop' }); dest = null; alvo = null; fecharModais(); }
   else if (ev.key === 'Enter') { ev.preventDefault(); $('chatin').focus(); }
+  else if (ev.key === '+' || ev.key === '=') mudarZoom(1);
+  else if (ev.key === '-' || ev.key === '_') mudarZoom(-1);
 });
 
 addEventListener('keyup', (ev) => {
@@ -443,6 +489,8 @@ $('closeinv').onclick = () => $('inv').classList.remove('open');
 $('closeshop').onclick = () => { $('shop').classList.remove('open'); lojaAtual = null; };
 $('spellbtn').onclick = () => enviar({ t: 'spell' });
 $('stopbtn').onclick = () => { enviar({ t: 'stop' }); dest = null; alvo = null; };
+$('zoomin').onclick = () => mudarZoom(1);
+$('zoomout').onclick = () => mudarZoom(-1);
 
 $('chatform').addEventListener('submit', (ev) => {
   ev.preventDefault();
@@ -566,11 +614,20 @@ function render(dt) {
   ctx.fillStyle = '#060606';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  const x0 = Math.max(0, Math.floor(cam.x / TILE)), y0 = Math.max(0, Math.floor(cam.y / TILE));
-  const x1 = Math.min(M.w - 1, x0 + Math.ceil(vw / TILE) + 1);
-  const y1 = Math.min(M.h - 1, y0 + Math.ceil(vh / TILE) + 1);
+  // Faixa visível SEM prender aos limites do mapa: o que cai fora vira
+  // água (ou escuro, nas cavernas). Sem isso, zoom baixo em tela larga
+  // deixaria barras pretas em volta de um mapa de 40 tiles.
+  const vx0 = Math.floor(cam.x / TILE), vy0 = Math.floor(cam.y / TILE);
+  const vx1 = vx0 + Math.ceil(vw / TILE) + 1, vy1 = vy0 + Math.ceil(vh / TILE) + 1;
+  const x0 = Math.max(0, vx0), y0 = Math.max(0, vy0);
+  const x1 = Math.min(M.w - 1, vx1), y1 = Math.min(M.h - 1, vy1);
 
-  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+  for (let y = vy0; y <= vy1; y++) for (let x = vx0; x <= vx1; x++) {
+    const dentro = x >= 0 && y >= 0 && x < M.w && y < M.h;
+    if (!dentro) {
+      if (!escuro) ds(IMG.water, waterFrame * 32, 160, 32, 32, x * TILE, y * TILE);
+      continue;
+    }
     const t = M.tiles[y][x], v = M.deco[y][x];
     const bx = (x * TILE - cam.x) * ZOOM, by = (y * TILE - cam.y) * ZOOM, S = TILE * ZOOM;
     if (escuro) {
