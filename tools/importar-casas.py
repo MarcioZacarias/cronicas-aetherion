@@ -96,6 +96,25 @@ def altura_da_base(rec):
     return max(1, round((ultimo - inicio + 1) / T))
 
 
+# Casas avulsas: um PNG = uma casa inteira, já desenhada. Entram no mesmo
+# atlas, com o tamanho arredondado para cima até fechar tiles de 32.
+AVULSAS = RAIZ / 'tiled' / 'ref'
+
+
+def importar_avulsas():
+    if not AVULSAS.exists():
+        return []
+    saida = []
+    for arq in sorted(AVULSAS.glob('*.png')):
+        im = Image.open(arq).convert('RGBA')
+        tw, th = -(-im.width // T), -(-im.height // T)
+        tela = Image.new('RGBA', (tw * T, th * T), (0, 0, 0, 0))
+        tela.alpha_composite(im, ((tw * T - im.width) // 2, th * T - im.height))
+        # Hífen não vale como chave de objeto em JS sem aspas; normaliza.
+        saida.append((arq.stem.replace('-', '_'), tela, tw, th, 2))
+    return saida
+
+
 def main():
     origem = Path(sys.argv[1]) if len(sys.argv) > 1 else Path('houses.png')
     if not origem.exists():
@@ -129,6 +148,7 @@ def main():
         cor = CORES[i] if i < len(CORES) else f'v{i}'
         curados.append((f'{tipo}_{cor}', tela, tw, th, base))
     descartados = len(recortes) - len(curados)
+    curados.extend(importar_avulsas())
     recortes = [(t, w, h, b) for _, t, w, h, b in curados]
     nomes = [n for n, *_ in curados]
     print(f'{descartados} peças descartadas (chaminés, alpendres, fachadas soltas)')

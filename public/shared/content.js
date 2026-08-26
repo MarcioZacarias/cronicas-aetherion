@@ -184,26 +184,26 @@ export const SPAWNS = [
 // ---------------------------------------------------------
 export const NPCS = [
   // --- Vila de Lumera: cada um na porta do seu estabelecimento ---
-  { id: 'toren', name: 'Toren — Ferreiro', img: 'villager_a', map: 'over', x: 8, y: 21 },
-  { id: 'mira', name: 'Mira — Alquimista', img: 'princess_a', map: 'over', x: 19, y: 21 },
-  { id: 'irina', name: 'Irina — Sacerdotisa', img: 'princess_c', map: 'over', x: 6, y: 29 },
-  { id: 'bento', name: 'Bento — Cocheiro', img: 'villager_b', map: 'over', x: 19, y: 29 },
+  { id: 'toren', name: 'Toren — Ferreiro', img: 'villager_a', map: 'over', x: 8, y: 19 },
+  { id: 'mira', name: 'Mira — Alquimista', img: 'princess_a', map: 'over', x: 19, y: 19 },
+  { id: 'irina', name: 'Irina — Sacerdotisa', img: 'princess_c', map: 'over', x: 8, y: 29 },
+  { id: 'bento', name: 'Bento — Cocheiro', img: 'villager_b', map: 'over', x: 18, y: 29 },
   { id: 'cedric', name: 'Cedric — Capitão da Guarda', img: 'guard_a', map: 'over', x: 13, y: 18 },
 
   // --- Ardentia: o eixo comercial de frente para a praça ---
-  { id: 'gorm', name: 'Gorm — Caixa do Banco', img: 'villager_a', map: 'vale', x: 12, y: 20 },
-  { id: 'elara', name: 'Elara — Bibliotecária', img: 'princess_c', map: 'vale', x: 19, y: 20 },
-  { id: 'harlan', name: 'Mestre Harlan — Armeiro', img: 'guard_b', map: 'vale', x: 25, y: 20 },
-  { id: 'sela', name: 'Sela — Boticária', img: 'princess_b', map: 'vale', x: 34, y: 20 },
-  { id: 'edmun', name: 'Escrivão Edmun — Prefeitura', img: 'villager_c', map: 'vale', x: 41, y: 20 },
-  { id: 'brida', name: 'Brida — Taverneira', img: 'princess', map: 'vale', x: 48, y: 20 },
-  { id: 'seraf', name: 'Serafina — Sacerdotisa do Templo', img: 'princess_a', map: 'vale', x: 28, y: 13 },
-  { id: 'jorun', name: 'Jorun — Mestre das Carruagens', img: 'guard_b', map: 'vale', x: 36, y: 37 },
+  { id: 'gorm', name: 'Gorm — Caixa do Banco', img: 'villager_a', map: 'vale', x: 23, y: 20 },
+  { id: 'elara', name: 'Elara — Bibliotecária', img: 'princess_c', map: 'vale', x: 35, y: 20 },
+  { id: 'harlan', name: 'Mestre Harlan — Armeiro', img: 'guard_b', map: 'vale', x: 41, y: 20 },
+  { id: 'sela', name: 'Sela — Boticária', img: 'princess_b', map: 'vale', x: 47, y: 20 },
+  { id: 'edmun', name: 'Escrivão Edmun — Prefeitura', img: 'villager_c', map: 'vale', x: 15, y: 37 },
+  { id: 'brida', name: 'Brida — Taverneira', img: 'princess', map: 'vale', x: 23, y: 37 },
+  { id: 'seraf', name: 'Serafina — Sacerdotisa do Templo', img: 'princess_a', map: 'vale', x: 11, y: 13 },
+  { id: 'jorun', name: 'Jorun — Mestre das Carruagens', img: 'guard_b', map: 'vale', x: 32, y: 37 },
   { id: 'lyra', name: 'Capitã Lyra — Guarda de Ardentia', img: 'guard_a', map: 'vale', x: 30, y: 37 },
   { id: 'tomas', name: 'Irmão Tomas — Irmandade', img: 'villager_b', map: 'vale', x: 28, y: 21 },
   { id: 'aldous', name: 'Velho Aldous — Mendigo', img: 'villager_c', map: 'vale', x: 28, y: 27 },
   { id: 'nilo', name: 'Nilo — Garoto Curioso', img: 'villager_b', map: 'vale', x: 33, y: 25 },
-  { id: 'rosa', name: 'Rosa — Estalajadeira', img: 'princess', map: 'vale', x: 35, y: 47 },
+  { id: 'rosa', name: 'Rosa — Estalajadeira', img: 'princess', map: 'vale', x: 32, y: 46 },
 ];
 
 // ---------------------------------------------------------
@@ -216,8 +216,8 @@ export const BANCARIOS = ['gorm'];
 
 // Templos: onde se renasce. Ficam na porta do prédio, não dentro dele.
 export const TEMPLOS = {
-  lumera:   { nome: 'Santuário de Lumera',  map: 'over', x: 8,  y: 29 },
-  ardentia: { nome: 'Templo de Ardentia',   map: 'vale', x: 30, y: 13 },
+  lumera:   { nome: 'Santuário de Lumera',  map: 'over', x: 9,  y: 29 },
+  ardentia: { nome: 'Templo de Ardentia',   map: 'vale', x: 14, y: 13 },
 };
 
 // Viagem paga. O preço é o que separa "atalho conveniente" de "teleporte
@@ -225,7 +225,7 @@ export const TEMPLOS = {
 export const DESTINOS = {
   lumera:    { nome: 'Lumera',                map: 'over', x: 19, y: 29, preco: 60 },
   minas:     { nome: 'Entrada das Minas',     map: 'over', x: 18, y: 7,  preco: 35 },
-  ardentia:  { nome: 'Ardentia',              map: 'vale', x: 36, y: 37, preco: 60 },
+  ardentia:  { nome: 'Ardentia',              map: 'vale', x: 31, y: 37, preco: 60 },
   cemiterio: { nome: 'Cemitério de Ardentia', map: 'vale', x: 17, y: 47, preco: 40 },
 };
 
