@@ -2,7 +2,7 @@
 
 Protótipo jogável de MMORPG 2D top-down inspirado em Tibia, desenvolvido em HTML5/Canvas puro — **arquivo único, sem dependências, roda em qualquer navegador** (desktop e mobile).
 
-🎮 **Jogar:** abra `index.html` ou acesse a versão hospedada via GitHub Pages.
+🎮 **Jogar:** <https://srv1927329.hstgr.cloud> — ou abra o `index.html` localmente no navegador.
 
 ## Conteúdo atual
 
@@ -30,6 +30,25 @@ HTML5 Canvas + JavaScript vanilla. Sprites embutidos em base64 (arquivo único e
 - [ ] Capítulo III — Os Sete
 - [ ] Sistema de vocações (Cavaleiro, Mago, Arqueiro, Sacerdote)
 - [ ] Multiplayer via WebSocket (Node.js)
+
+## Deploy
+
+Hospedado em VPS Debian 13 + nginx, servido como site estático em <https://srv1927329.hstgr.cloud>
+(HTTPS via Let'''s Encrypt, renovação automática pelo `certbot.timer`).
+
+O diretório `/var/www/aetherion` é um clone deste repositório, autenticado por uma
+**deploy key read-only** — o servidor lê o repositório, nunca escreve nele.
+
+Para publicar uma alteração:
+
+```bash
+git push                                    # da máquina local
+ssh root@srv1927329.hstgr.cloud deploy-aetherion   # no servidor
+```
+
+O `deploy-aetherion` faz `fetch` + `reset --hard origin/main`, normaliza permissões e
+mostra o commit que ficou no ar. O `index.html` é servido com `Cache-Control: no-cache`,
+então cada deploy chega ao jogador imediatamente.
 
 ## Créditos e licença dos assets
 
