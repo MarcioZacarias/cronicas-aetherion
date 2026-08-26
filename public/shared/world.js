@@ -82,9 +82,9 @@ export const CASAS = {
   chale_roxo: [6, 7],
   chale_cinza: [6, 7],
   chale_vermelho: [6, 7],
-  house1: [6, 5],
-  house1b: [6, 5],
-  house1c: [6, 5],
+  house1: [9, 7],
+  house1b: [9, 7],
+  house1c: [9, 7],
   oga_blueroofinn: [9, 8],
 };
 
@@ -355,14 +355,16 @@ export function buildWorld() {
     // --- Vila de Lumera ---
     // Terreiro de terra batida com duas ruas calçadas. As ruas são
     // reservadas antes dos prédios, senão as casas as invadiriam.
-    preencher(m, 5, 11, 23, 29, 1);
-    reservar(m, 5, 19, 23, 21, 18);      // rua principal (leste-oeste)
-    reservar(m, 13, 11, 14, 29, 18);     // rua do porto (norte-sul)
-    reservar(m, 5, 29, 23, 29, 1);       // beira sul livre
+    // Vila redimensionada para as casas de 9x7: dois lotes de 9 mais a rua
+    // do porto no meio dão 21 de largura.
+    preencher(m, 4, 10, 24, 29, 1);
+    reservar(m, 4, 18, 24, 20, 18);      // rua principal (leste-oeste)
+    reservar(m, 13, 10, 15, 29, 18);     // rua do porto (norte-sul)
+    reservar(m, 4, 29, 24, 29, 1);       // beira sul livre
     // A borda norte NÃO é reservada de propósito: as casas da fileira de
     // cima começam em y=16, e reservá-la deixava o quarteirão inteiro vazio.
-    for (let y = 6; y < 16; y++) if (T[y][18] !== 2) T[y][18] = 1; // trilha às minas
-    reservar(m, 18, 6, 18, 16, 1);
+    for (let y = 6; y < 11; y++) if (T[y][14] !== 2) T[y][14] = 1; // trilha às minas
+    reservar(m, 14, 6, 14, 10, 1);
     T[30][14] = 18; T[31][14] = 18;      // descida para o porto
 
     // Lumera é vila, não cidade: quatro serviços essenciais e nada mais.
@@ -375,10 +377,10 @@ export function buildWorld() {
     // As três casas avulsas mais a estalagem de telhado azul: Lumera tem
     // exatamente quatro prédios, então o conjunto fecha certo.
     const SERVICOS_LUMERA = [
-      [6, 14, 'house1', 'armaria', 'Forja de Toren'],
-      [16, 14, 'house1b', 'botica', 'Botica de Mira'],
-      [6, 24, 'house1c', 'templo', 'Santuário de Lumera'],
-      [15, 21, 'oga_blueroofinn', 'estacao', 'Estalagem do Corvo'],
+      [4, 11, 'house1', 'armaria', 'Forja de Toren'],
+      [16, 11, 'house1b', 'botica', 'Botica de Mira'],
+      [4, 21, 'house1c', 'templo', 'Santuário de Lumera'],
+      [16, 21, 'oga_blueroofinn', 'estacao', 'Estalagem do Corvo'],
     ];
     for (const [bx, by, casa, tipo, nome] of SERVICOS_LUMERA) {
       const [cw, ch] = CASAS[casa];
@@ -390,11 +392,11 @@ export function buildWorld() {
     // colisão mas desenham 2, e colados escondem o vizinho.
     // A rua principal divide espaço com Toren (8,21) e Mira (19,21): o
     // mobiliário é posicionado em volta deles, não por cima.
-    objeto(m, 'engradado', 5, 20); objeto(m, 'lampiao', 6, 20);
-    objeto(m, 'banca', 10, 20);
+    objeto(m, 'engradado', 4, 19); objeto(m, 'lampiao', 5, 19);
+    objeto(m, 'banca', 9, 19);
     objeto(m, 'arbusto', 13, 21);
-    objeto(m, 'poco', 16, 20);
-    objeto(m, 'lampiao', 21, 20); objeto(m, 'barril', 22, 20);
+    objeto(m, 'poco', 17, 19);
+    objeto(m, 'lampiao', 23, 19); objeto(m, 'barril', 24, 19);
 
     T[28][4] = 4; T[4][35] = 4;
     m.holeAnchor = { x: 17, y: 3 };

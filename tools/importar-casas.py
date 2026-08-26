@@ -100,6 +100,14 @@ def altura_da_base(rec):
 # atlas, com o tamanho arredondado para cima até fechar tiles de 32.
 AVULSAS = RAIZ / 'tiled' / 'ref'
 
+# Ampliação por arquivo. As três casas vêm pequenas: 4,4 tiles de altura
+# contra 2 do personagem dá proporção de casebre. A 1,5x ficam 9x7, que é
+# altura de casa de verdade e ainda cabe no traçado de Lumera. A 2x seria
+# mais limpo (pixel dobrado, sem tamanho desigual), mas dá 11x9 e não cabe.
+# A estalagem já vem desenhada maior, e no tamanho de origem fica
+# equivalente às outras — ampliá-la a deixaria desproporcional.
+ESCALA_AVULSA = {'house1': 1.5, 'house1b': 1.5, 'house1c': 1.5}
+
 
 def importar_avulsas():
     if not AVULSAS.exists():
@@ -107,6 +115,10 @@ def importar_avulsas():
     saida = []
     for arq in sorted(AVULSAS.glob('*.png')):
         im = Image.open(arq).convert('RGBA')
+        fator = ESCALA_AVULSA.get(arq.stem, 1.0)
+        if fator != 1.0:
+            im = im.resize((round(im.width * fator), round(im.height * fator)),
+                           Image.NEAREST)
         tw, th = -(-im.width // T), -(-im.height // T)
         tela = Image.new('RGBA', (tw * T, th * T), (0, 0, 0, 0))
         tela.alpha_composite(im, ((tw * T - im.width) // 2, th * T - im.height))

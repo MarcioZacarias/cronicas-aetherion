@@ -146,7 +146,7 @@ export const MTYPES = {
 // Tabela de nascimento: [tipo, mapa, x, y]
 export const SPAWNS = [
   // Ilha de Aurora — arredores de Lumera
-  ['slime', 'over', 7, 6], ['slime', 'over', 10, 9], ['slime', 'over', 5, 14], ['slime', 'over', 12, 13],
+  ['slime', 'over', 7, 6], ['slime', 'over', 10, 9], ['slime', 'over', 5, 7], ['slime', 'over', 10, 6],
   ['bee', 'over', 24, 8], ['bee', 'over', 31, 13], ['bee', 'over', 27, 17],
   // A cobra do pântano nascia em (30,23), que o gerador transforma em água:
   // ela ficava presa, sem poder se mover nem ser alcançada.
@@ -184,10 +184,10 @@ export const SPAWNS = [
 // ---------------------------------------------------------
 export const NPCS = [
   // --- Vila de Lumera: cada um na porta do seu estabelecimento ---
-  { id: 'toren', name: 'Toren — Ferreiro', img: 'villager_a', map: 'over', x: 8, y: 19 },
-  { id: 'mira', name: 'Mira — Alquimista', img: 'princess_a', map: 'over', x: 19, y: 19 },
-  { id: 'irina', name: 'Irina — Sacerdotisa', img: 'princess_c', map: 'over', x: 8, y: 29 },
-  { id: 'bento', name: 'Bento — Cocheiro', img: 'villager_b', map: 'over', x: 18, y: 29 },
+  { id: 'toren', name: 'Toren — Ferreiro', img: 'villager_a', map: 'over', x: 8, y: 18 },
+  { id: 'mira', name: 'Mira — Alquimista', img: 'princess_a', map: 'over', x: 20, y: 18 },
+  { id: 'irina', name: 'Irina — Sacerdotisa', img: 'princess_c', map: 'over', x: 7, y: 28 },
+  { id: 'bento', name: 'Bento — Cocheiro', img: 'villager_b', map: 'over', x: 20, y: 29 },
   { id: 'cedric', name: 'Cedric — Capitão da Guarda', img: 'guard_a', map: 'over', x: 13, y: 18 },
 
   // --- Ardentia: o eixo comercial de frente para a praça ---
@@ -216,15 +216,15 @@ export const BANCARIOS = ['gorm'];
 
 // Templos: onde se renasce. Ficam na porta do prédio, não dentro dele.
 export const TEMPLOS = {
-  lumera:   { nome: 'Santuário de Lumera',  map: 'over', x: 9,  y: 29 },
+  lumera:   { nome: 'Santuário de Lumera',  map: 'over', x: 9,  y: 28 },
   ardentia: { nome: 'Templo de Ardentia',   map: 'vale', x: 14, y: 13 },
 };
 
 // Viagem paga. O preço é o que separa "atalho conveniente" de "teleporte
 // que torna o mundo irrelevante" — andar continua sendo de graça.
 export const DESTINOS = {
-  lumera:    { nome: 'Lumera',                map: 'over', x: 19, y: 29, preco: 60 },
-  minas:     { nome: 'Entrada das Minas',     map: 'over', x: 18, y: 7,  preco: 35 },
+  lumera:    { nome: 'Lumera',                map: 'over', x: 21, y: 29, preco: 60 },
+  minas:     { nome: 'Entrada das Minas',     map: 'over', x: 14, y: 7,  preco: 35 },
   ardentia:  { nome: 'Ardentia',              map: 'vale', x: 31, y: 37, preco: 60 },
   cemiterio: { nome: 'Cemitério de Ardentia', map: 'vale', x: 17, y: 47, preco: 40 },
 };
