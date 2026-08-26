@@ -1,0 +1,206 @@
+#!/usr/bin/env python3
+"""
+Compõe uma prévia PNG de um trecho do mapa, usando as MESMAS peças e a mesma
+ordem de montagem do cliente. Serve para conferir a cidade sem abrir o
+navegador — e para flagrar fachada torta antes de ir para produção.
+
+Entrada: JSON gerado pelo dump do mapa (tiles, deco, buildings, props).
+Uso:  python tools/previa-cidade.py entrada.json saida.png [zoom]
+"""
+
+import json
+import sys
+from pathlib import Path
+from PIL import Image, ImageDraw
+
+RAIZ = Path(__file__).resolve().parent.parent
+ASSETS = RAIZ / 'public' / 'assets'
+T = 32
+
+
+def carregar(nome):
+    return Image.open(ASSETS / f'{nome}.png').convert('RGBA')
+
+
+def main():
+    entrada = Path(sys.argv[1])
+    saida = Path(sys.argv[2])
+    zoom = int(sys.argv[3]) if len(sys.argv) > 3 else 2
+
+    d = json.loads(entrada.read_text(encoding='utf-8'))
+    x0, y0, x1, y1 = d['x0'], d['y0'], d['x1'], d['y1']
+    W, H = (x1 - x0 + 1) * T, (y1 - y0 + 1) * T
+
+    img = Image.new('RGBA', (W, H), (6, 6, 6, 255))
+    dr = ImageDraw.Draw(img)
+
+    grass, dirt, dirt2 = carregar('grass'), carregar('dirt'), carregar('dirt2')
+    water, wall, rock = carregar('water'), carregar('wall'), carregar('rock')
+    grave, chest, tree = carregar('grave'), carregar('chest'), carregar('tree')
+    city = carregar('city')
+    indice = json.loads((ASSETS / 'city.json').read_text(encoding='utf-8'))['variantes']
+    humanos = {n: carregar(n) for n in ('guard', 'princess', 'villager',
+                                    'guard_a', 'guard_b', 'villager_a', 'villager_b',
+                                    'villager_c', 'princess_a', 'princess_b', 'princess_c')}
+
+    def por(im, cx, cy, sx=0, sy=0, sw=T, sh=T):
+        img.alpha_composite(im.crop((sx, sy, sx + sw, sy + sh)), (cx, cy))
+
+    chao_de_prop = {(p['x'], p['y']): p.get('chao', 0) for p in d['props']}
+
+    def calcamento(px, py, x, y, v):
+        dr.rectangle([px, py, px + T, py + T], fill=(86, 80, 73))
+        tons = [(110, 103, 94), (119, 112, 102), (101, 94, 86), (125, 118, 107)]
+        for i in range(4):
+            lin, col = i // 2, i % 2
+            desl = int(T * 0.12) if (lin + v) % 2 else 0
+            c = tons[(x * 3 + y * 5 + i + v) % len(tons)]
+            dr.rectangle([px + col * T // 2 + desl + 1, py + lin * T // 2 + 1,
+                          px + col * T // 2 + desl + T // 2 - 2, py + lin * T // 2 + T // 2 - 2], fill=c)
+
+    # ---- chão ----
+    for j, linha in enumerate(d['tiles']):
+        for i, t in enumerate(linha):
+            x, y = x0 + i, y0 + j
+            px, py = i * T, j * T
+            v = d['deco'][j][i]
+            if t == 2:
+                por(water, px, py, 0, 160); continue
+            if t == 13:
+                por(wall, px, py); continue
+            chao = t
+            if t == 19:
+                chao = chao_de_prop.get((x, y), 0)
+            elif t == 17:
+                chao = 1
+            if chao == 5:
+                por(dirt2, px, py, (v % 3) * T, 160)
+            elif chao == 18:
+                calcamento(px, py, x, y, v)
+            elif chao in (1, 12):
+                por(dirt, px, py, (v % 3) * T, 160)
+            else:
+                por(grass, px, py, (v % 3) * T, 160)
+            if t == 7: por(rock, px, py)
+            if t == 15: por(grave, px, py)
+            if t == 4: por(chest, px, py)
+            if t == 14:
+                dr.rectangle([px + 2, py, px + T - 2, py + T], fill=(74, 48, 24))
+                for k, c in enumerate([(160,64,64),(64,96,160),(160,160,64),(64,160,96)]):
+                    dr.rectangle([px + 4 + k * 6, py + 3, px + 8 + k * 6, py + T - 6], fill=c)
+
+    # ---- camada ordenada por Y ----
+    fila = []
+
+    for j, linha in enumerate(d['tiles']):
+        for i, t in enumerate(linha):
+            if t == 3:
+                fila.append(((y0 + j) * T, ('arvore', i, j)))
+
+    for b in d['buildings']:
+        fila.append(((b['y'] + b['h']) * T, ('predio', b, None)))
+    for p in d['props']:
+        fila.append(((p['y'] + 1) * T, ('prop', p, None)))
+    for n in d['npcs']:
+        fila.append((n['y'] * T, ('npc', n, None)))
+
+    fila.sort(key=lambda e: e[0])
+
+    def peca(variante, nome, cx, cy):
+        p = indice.get(variante, indice['house']).get(nome)
+        if not p:
+            return
+        sx, sy, sw, sh = p
+        img.alpha_composite(city.crop((sx, sy, sx + sw, sy + sh)), (cx, cy))
+
+    for _, (tipo, a, b_) in fila:
+        if tipo == 'arvore':
+            i, j = a, b_
+            img.alpha_composite(tree.crop((0, 0, 96, 144)), (i * T - 32, j * T - 112))
+        elif tipo == 'predio':
+            b = a
+            for cxi in range(b['w']):
+                borda = cxi == 0 or cxi == b['w'] - 1
+                px = (b['x'] - x0 + cxi) * T
+                peca(b['v'], 'canto_topo' if borda else 'topo', px, (b['y'] - y0) * T)
+                linha_janela = b['h'] - 4
+                for cy in range(1, b['h'] - 3):
+                    if borda:
+                        nome = 'canto'
+                    elif cy == linha_janela and cxi in b.get('altas', []):
+                        nome = 'parede_janela'
+                    else:
+                        nome = 'parede'
+                    peca(b['v'], nome, px, (b['y'] - y0 + cy) * T)
+                peca(b['v'], 'canto' if borda else 'cornija', px, (b['y'] - y0 + b['h'] - 3) * T)
+                nome = 'base'
+                if cxi == b['porta']:
+                    nome = 'porta'
+                elif not borda and cxi in b.get('janelas', []):
+                    nome = 'base_janela'
+                peca(b['v'], nome, px, (b['y'] - y0 + b['h'] - 2) * T)
+        elif tipo == 'prop':
+            p = a
+            px, py = (p['x'] - x0) * T, (p['y'] - y0) * T
+            r = lambda fx, fy, fw, fh, c: dr.rectangle(
+                [px + T * fx, py + T * fy, px + T * (fx + fw), py + T * (fy + fh)], fill=c)
+            k = p['t']
+            if k == '_vazio':
+                pass
+            elif k == 'fonte':
+                L, A = T * p.get('w', 2), T * p.get('h', 2)
+                cx, cy = px + L // 2, py + A // 2
+                dr.ellipse([cx - L * .46, cy - A * .34, cx + L * .46, cy + A * .46], fill=(93, 87, 79))
+                dr.ellipse([cx - L * .44, cy - A * .38, cx + L * .44, cy + A * .38], fill=(138, 133, 124))
+                dr.ellipse([cx - L * .34, cy - A * .28, cx + L * .34, cy + A * .28], fill=(52, 114, 180))
+                dr.rectangle([cx - L * .06, cy - A * .30, cx + L * .06, cy + A * .04], fill=(154, 148, 138))
+                dr.rectangle([cx - L * .03, cy - A * .44, cx + L * .03, cy - A * .26], fill=(200, 232, 250))
+                dr.ellipse([cx - L * .15, cy - A * .35, cx + L * .15, cy - A * .25], fill=(200, 232, 250))
+            elif k == 'poco':
+                r(.1, .35, .8, .55, (122, 113, 104)); r(.2, .45, .6, .4, (27, 36, 48))
+                r(.14, .05, .72, .16, (90, 58, 26)); r(.44, .18, .12, .24, (74, 48, 24))
+            elif k == 'lampiao':
+                alt = int(T * 1.1)
+                r(.4, .35, .2, .62, (46, 40, 31))
+                dr.rectangle([px + T * .44, py + T * .9 - alt, px + T * .56, py + T * .35], fill=(58, 49, 40))
+                ly = py + T * .9 - alt
+                dr.rectangle([px + T * .32, ly, px + T * .68, ly + T * .34], fill=(42, 36, 26))
+                dr.rectangle([px + T * .37, ly + T * .05, px + T * .63, ly + T * .29], fill=(255, 222, 140))
+                dr.rectangle([px + T * .28, ly - T * .08, px + T * .72, ly], fill=(58, 49, 40))
+            elif k == 'banca':
+                r(.05, .5, .9, .42, (107, 74, 36)); r(.05, .44, .9, .1, (138, 96, 52))
+                for i2 in range(5):
+                    r(.05 + i2 * .18, .06, .18, .34, (192, 74, 58) if i2 % 2 else (232, 220, 192))
+                r(.05, .38, .9, .08, (74, 48, 24))
+            elif k == 'engradado':
+                r(.08, .18, .84, .74, (138, 96, 52)); r(.14, .24, .72, .62, (107, 74, 36))
+                r(.08, .5, .84, .08, (74, 48, 24)); r(.46, .18, .08, .74, (74, 48, 24))
+            elif k == 'banco':
+                r(.06, .42, .88, .16, (122, 90, 52)); r(.06, .3, .88, .1, (138, 106, 60))
+                r(.12, .58, .1, .28, (74, 58, 36)); r(.78, .58, .1, .28, (74, 58, 36))
+            elif k == 'barril':
+                r(.16, .16, .68, .76, (122, 82, 40)); r(.16, .3, .68, .08, (58, 40, 16))
+                r(.16, .66, .68, .08, (58, 40, 16)); r(.24, .16, .52, .1, (154, 106, 56))
+            elif k == 'arvorinha':
+                img.alpha_composite(grass.crop((0, 0, T, T)), (px, py - 8))
+                img.alpha_composite(grass.crop((0, 0, T, T)), (px, py))
+            elif k == 'torre':
+                dr.rectangle([px - 4, py - int(T * 1.5), px + T + 4, py + int(T * 1.0)], fill=(74, 71, 64))
+                dr.rectangle([px - 1, py - int(T * 1.4), px + T + 1, py + int(T * .9)], fill=(106, 102, 92))
+                for i2 in range(4):
+                    dr.rectangle([px + int(T * (.02 + i2 * .28)), py - int(T * 1.62),
+                                  px + int(T * (.18 + i2 * .28)), py - int(T * 1.36)], fill=(58, 55, 48))
+                dr.rectangle([px + int(T * .38), py - int(T * .9),
+                              px + int(T * .62), py - int(T * .5)], fill=(27, 36, 48))
+        elif tipo == 'npc':
+            n = a
+            im = humanos.get(n['img'], humanos['villager_a'])
+            img.alpha_composite(im.crop((0, 2 * 64, 64, 3 * 64)), ((n['x'] - x0) * T - 16, (n['y'] - y0) * T - 32))
+
+    fora = img.convert('RGB').resize((W * zoom, H * zoom), Image.NEAREST)
+    fora.save(saida)
+    print(f'{saida}  {fora.width}x{fora.height}  ({x1-x0+1}x{y1-y0+1} tiles, zoom {zoom}x)')
+
+
+if __name__ == '__main__':
+    main()

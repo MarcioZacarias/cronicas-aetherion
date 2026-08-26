@@ -82,18 +82,30 @@ resize();
 const SPRITES = ['soldier', 'guard', 'princess', 'villager', 'slime', 'bat', 'snake', 'bee',
   'sworm', 'bworm', 'eyeball', 'ghost', 'pumpking', 'grass', 'dirt', 'dirt2', 'water', 'tree',
   'chest', 'house', 'hole', 'wall', 'rock', 'house2', 'chapel', 'grave', 'wasp', 'zombie',
-  'cultist', 'priest', 'boat', 'flower'];
+  'cultist', 'priest', 'boat', 'flower', 'city',
+  // Variantes vestidas geradas por tools/vestir-npcs.py — o pacote LPC
+  // incluído traz só o corpo, sem as camadas de cabelo e roupa.
+  'villager_a', 'villager_b', 'villager_c', 'guard_a', 'guard_b', 'soldier_a',
+  'princess_a', 'princess_b', 'princess_c'];
 const IMG = {};
 
+// Índice das peças de fachada em city.png, gerado por tools/gerar-atlas-cidade.py
+let CITY = null;
+
 function carregarSprites() {
-  return Promise.all(SPRITES.map((nome) => new Promise((resolve) => {
+  const imagens = SPRITES.map((nome) => new Promise((resolve) => {
     const im = new Image();
     im.onload = () => resolve();
     // Um sprite que falha não pode travar o jogo inteiro; ele só não desenha.
     im.onerror = () => { console.warn('sprite ausente:', nome); resolve(); };
     im.src = `/assets/${nome}.png`;
     IMG[nome] = im;
-  })));
+  }));
+  const indice = fetch('/assets/city.json')
+    .then((r) => r.json())
+    .then((j) => { CITY = j; })
+    .catch(() => { console.warn('city.json ausente: prédios não serão desenhados'); });
+  return Promise.all([...imagens, indice]);
 }
 
 // ---------------------------------------------------------
@@ -378,6 +390,16 @@ function pintarLoja() {
 // Entrada do jogador
 // ---------------------------------------------------------
 function meuEnt() { return meuId ? ents.get(meuId) : null; }
+
+// Índice de mobiliário por tile, refeito só quando o mapa muda.
+let propIndex = null, propIndexMapa = null;
+function indiceProps() {
+  if (propIndexMapa === mapaAtual && propIndex) return propIndex;
+  propIndex = new Map();
+  for (const p of MAPS[mapaAtual].props || []) propIndex.set(`${p.x},${p.y}`, p);
+  propIndexMapa = mapaAtual;
+  return propIndex;
+}
 
 canvas.addEventListener('pointerdown', (ev) => {
   const me = meuEnt();
@@ -674,10 +696,20 @@ function render(dt) {
       }
     } else {
       if (t === 2) { ds(IMG.water, waterFrame * 32, 160, 32, 32, x * TILE, y * TILE); continue; }
-      if (t === 5) { ds(IMG.dirt2, (v % 3) * 32, 160, 32, 32, x * TILE, y * TILE); continue; }
       if (t === 13) { ds(IMG.wall, 0, 0, 32, 32, x * TILE, y * TILE); continue; }
-      if (t === 1 || t === 12) ds(IMG.dirt, (v % 3) * 32, 160, 32, 32, x * TILE, y * TILE);
+
+      // Um objeto (19) substituiu o chão que havia ali, então recuperamos o
+      // tipo original guardado no prop. Um prédio (17) fica todo coberto
+      // pela fachada, então basta um chão neutro por baixo.
+      let chao = t;
+      if (t === 19) chao = indiceProps().get(`${x},${y}`)?.chao ?? 0;
+      else if (t === 17) chao = 1;
+
+      if (chao === 5) ds(IMG.dirt2, (v % 3) * 32, 160, 32, 32, x * TILE, y * TILE);
+      else if (chao === 18) desenharCalcamento(x, y, v);
+      else if (chao === 1 || chao === 12) ds(IMG.dirt, (v % 3) * 32, 160, 32, 32, x * TILE, y * TILE);
       else ds(IMG.grass, (v % 3) * 32, 160, 32, 32, x * TILE, y * TILE);
+
       if (t === 7) ds(IMG.rock, 0, 0, 32, 32, x * TILE, y * TILE);
       if (t === 15) ds(IMG.grave, 0, 0, 32, 32, x * TILE, y * TILE);
       if (t === 4) ds(IMG.chest, 0, 0, 32, 32, x * TILE, y * TILE);
@@ -717,11 +749,15 @@ function render(dt) {
         dr.push({ y: y * TILE, f: () => ds(IMG.tree, 0, 0, 96, 144, x * TILE - 32, y * TILE - 112) });
       }
     }
-    for (const hh of M.houses || []) {
-      dr.push({ y: (hh.y + 5) * TILE, f: () => ds(IMG[hh.img], 0, 0, 160, 160, hh.x * TILE, hh.y * TILE) });
+    // Prédios e mobiliário entram na mesma lista ordenada por Y, para quem
+    // caminha ao sul de uma fachada aparecer na frente dela.
+    for (const b of M.buildings || []) {
+      if (b.x > vx1 || b.x + b.w < vx0 || b.y > vy1 || b.y + b.h < vy0) continue;
+      dr.push({ y: (b.y + b.h) * TILE, f: () => desenharPredio(b) });
     }
-    for (const hh of M.chapels || []) {
-      dr.push({ y: (hh.y + 5) * TILE, f: () => ds(IMG.chapel, 0, 0, 160, 160, hh.x * TILE, hh.y * TILE) });
+    for (const p of M.props || []) {
+      if (p.x > vx1 || p.x < vx0 || p.y > vy1 || p.y < vy0) continue;
+      dr.push({ y: (p.y + 1) * TILE, f: () => desenharProp(p) });
     }
     for (const n of NPCS) {
       if (n.map !== mapaAtual) continue;
@@ -776,6 +812,176 @@ function render(dt) {
 
   desenharFlutuantes(dt);
   $('region').textContent = nomeRegiao();
+}
+
+// ---------------------------------------------------------
+// Cidade: fachadas modulares e mobiliário urbano
+// ---------------------------------------------------------
+
+// Desenha uma peça do atlas city.png num tile do mundo.
+function peca(variante, nome, dx, dy) {
+  if (!CITY) return;
+  const v = CITY.variantes[variante] || CITY.variantes.house;
+  const p = v && v[nome];
+  if (!p) return;
+  ds(IMG.city, p[0], p[1], p[2], p[3], dx, dy, p[2], p[3]);
+}
+
+// Um prédio é montado de cima para baixo:
+//   linha 0        topo (ameias)
+//   linhas 1..h-4  parede de tijolo
+//   linha h-3      cornija
+//   linhas h-2,h-1 embasamento (porta, janelas ou pedra lisa)
+// As colunas das pontas levam cantoneira.
+function desenharPredio(b) {
+  const v = b.v;
+  for (let cx = 0; cx < b.w; cx++) {
+    const borda = cx === 0 || cx === b.w - 1;
+    const px = (b.x + cx) * TILE;
+
+    peca(v, borda ? 'canto_topo' : 'topo', px, b.y * TILE);
+
+    // A última linha de tijolo antes da cornija leva as janelas do andar
+    // de cima; as de baixo ficam lisas, senão a fachada vira uma grade.
+    const linhaJanela = b.h - 4;
+    for (let cy = 1; cy <= b.h - 4; cy++) {
+      let nome = 'parede';
+      if (borda) nome = 'canto';
+      else if (cy === linhaJanela && b.altas && b.altas.includes(cx)) nome = 'parede_janela';
+      peca(v, nome, px, (b.y + cy) * TILE);
+    }
+
+    peca(v, borda ? 'canto' : 'cornija', px, (b.y + b.h - 3) * TILE);
+
+    const baseY = (b.y + b.h - 2) * TILE;
+    let nomeBase = 'base';
+    if (cx === b.porta) nomeBase = 'porta';
+    else if (!borda && b.janelas.includes(cx)) nomeBase = 'base_janela';
+    peca(v, nomeBase, px, baseY);
+  }
+}
+
+// Mobiliário desenhado com primitivas — mesma técnica que o jogo já usava
+// para placas e estantes. Evita depender de arte que não existe no pacote.
+function desenharProp(p) {
+  const bx = (p.x * TILE - cam.x) * ZOOM, by = (p.y * TILE - cam.y) * ZOOM;
+  const S = TILE * ZOOM;
+  const r = (x, y, w, h, cor) => { ctx.fillStyle = cor; ctx.fillRect(bx + S * x, by + S * y, S * w, S * h); };
+
+  switch (p.t) {
+    case '_vazio': // tile só de colisão de um objeto grande
+      break;
+    case 'fonte': {
+      // Ocupa 2x2 tiles: tanque octogonal, pilar central e água pulsando.
+      const L = S * (p.w || 2), A = S * (p.h || 2);
+      const cx = bx + L / 2, cy = by + A / 2;
+      ctx.fillStyle = '#5d574f';
+      ctx.beginPath(); ctx.ellipse(cx, cy + A * 0.06, L * 0.46, A * 0.40, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = '#8a857c';
+      ctx.beginPath(); ctx.ellipse(cx, cy, L * 0.44, A * 0.38, 0, 0, 7); ctx.fill();
+      const brilho = 0.5 + 0.5 * Math.sin(pulse / 420);
+      ctx.fillStyle = `rgb(52,${106 + Math.round(16 * brilho)},${168 + Math.round(24 * brilho)})`;
+      ctx.beginPath(); ctx.ellipse(cx, cy, L * 0.34, A * 0.28, 0, 0, 7); ctx.fill();
+      // pilar e jato
+      ctx.fillStyle = '#9a948a';
+      ctx.fillRect(cx - L * 0.06, cy - A * 0.30, L * 0.12, A * 0.34);
+      ctx.fillStyle = `rgba(200,232,250,${0.55 + 0.35 * brilho})`;
+      ctx.fillRect(cx - L * 0.03, cy - A * 0.44, L * 0.06, A * 0.18);
+      ctx.beginPath(); ctx.ellipse(cx, cy - A * 0.30, L * 0.15, A * 0.05, 0, 0, 7); ctx.fill();
+      break;
+    }
+    case 'poco':
+      r(0.1, 0.35, 0.8, 0.55, '#7a7168');
+      r(0.2, 0.45, 0.6, 0.4, '#1b2430');
+      r(0.14, 0.05, 0.72, 0.16, '#5a3a1a');
+      r(0.44, 0.18, 0.12, 0.24, '#4a3018');
+      break;
+    case 'lampiao': {
+      // Sobe acima do próprio tile para ter cara de poste, não de caixinha.
+      const alt = S * 1.1;
+      r(0.4, 0.35, 0.2, 0.62, '#2e281f');
+      ctx.fillStyle = '#3a3128';
+      ctx.fillRect(bx + S * 0.44, by + S * 0.9 - alt, S * 0.12, alt - S * 0.55);
+      ctx.fillRect(bx + S * 0.3, by + S * 0.92, S * 0.4, S * 0.08);
+      const glow = 0.6 + 0.4 * Math.sin(pulse / 300);
+      const ly = by + S * 0.9 - alt;
+      ctx.fillStyle = `rgba(255,206,110,${0.16 * glow})`;
+      ctx.beginPath(); ctx.arc(bx + S * 0.5, ly + S * 0.16, S * 0.85, 0, 7); ctx.fill();
+      ctx.fillStyle = '#2a241a';
+      ctx.fillRect(bx + S * 0.32, ly, S * 0.36, S * 0.34);
+      ctx.fillStyle = `rgba(255,222,140,${0.75 + 0.25 * glow})`;
+      ctx.fillRect(bx + S * 0.37, ly + S * 0.05, S * 0.26, S * 0.24);
+      ctx.fillStyle = '#3a3128';
+      ctx.fillRect(bx + S * 0.28, ly - S * 0.08, S * 0.44, S * 0.08);
+      break;
+    }
+    case 'banca': // barraca de mercado
+      r(0.05, 0.5, 0.9, 0.42, '#6b4a24');
+      r(0.05, 0.44, 0.9, 0.1, '#8a6034');
+      for (let i = 0; i < 5; i++) {
+        r(0.05 + i * 0.18, 0.06, 0.18, 0.34, i % 2 ? '#c04a3a' : '#e8dcc0');
+      }
+      r(0.05, 0.38, 0.9, 0.08, '#4a3018');
+      break;
+    case 'engradado':
+      r(0.08, 0.18, 0.84, 0.74, '#8a6034');
+      r(0.14, 0.24, 0.72, 0.62, '#6b4a24');
+      r(0.08, 0.5, 0.84, 0.08, '#4a3018');
+      r(0.46, 0.18, 0.08, 0.74, '#4a3018');
+      break;
+    case 'barril':
+      r(0.16, 0.16, 0.68, 0.76, '#7a5228');
+      r(0.16, 0.3, 0.68, 0.08, '#3a2810');
+      r(0.16, 0.66, 0.68, 0.08, '#3a2810');
+      r(0.24, 0.16, 0.52, 0.1, '#9a6a38');
+      break;
+    case 'banco': // banco de praça
+      r(0.06, 0.42, 0.88, 0.16, '#7a5a34');
+      r(0.06, 0.3, 0.88, 0.1, '#8a6a3c');
+      r(0.12, 0.58, 0.1, 0.28, '#4a3a24');
+      r(0.78, 0.58, 0.1, 0.28, '#4a3a24');
+      r(0.06, 0.24, 0.06, 0.2, '#4a3a24');
+      r(0.88, 0.24, 0.06, 0.2, '#4a3a24');
+      break;
+    case 'arvorinha': {
+      // Reaproveita os tufos de grama do atlas — linhas que o jogo
+      // original nunca desenhava.
+      ds(IMG.grass, 0, 0, 32, 32, p.x * TILE, p.y * TILE - 8);
+      ds(IMG.grass, 0, 0, 32, 32, p.x * TILE, p.y * TILE);
+      break;
+    }
+    case 'torre':
+      // Nasce sobre a muralha: sobe bem acima do tile para virar silhueta.
+      ctx.fillStyle = '#4a4740';
+      ctx.fillRect(bx - S * 0.12, by - S * 1.5, S * 1.24, S * 2.5);
+      ctx.fillStyle = '#6a665c';
+      ctx.fillRect(bx - S * 0.04, by - S * 1.4, S * 1.08, S * 2.3);
+      ctx.fillStyle = '#3a3730';
+      for (let i = 0; i < 4; i++) ctx.fillRect(bx + S * (0.02 + i * 0.28), by - S * 1.62, S * 0.16, S * 0.26);
+      ctx.fillStyle = '#1b2430';
+      ctx.fillRect(bx + S * 0.38, by - S * 0.9, S * 0.24, S * 0.4);
+      break;
+    default:
+      break;
+  }
+}
+
+// Calçamento: paralelepípedos desenhados com deslocamento determinístico,
+// para a cidade não ter o mesmo chão de terra do campo.
+function desenharCalcamento(x, y, v) {
+  const bx = (x * TILE - cam.x) * ZOOM, by = (y * TILE - cam.y) * ZOOM;
+  const S = TILE * ZOOM;
+  ctx.fillStyle = '#565049';
+  ctx.fillRect(bx, by, S, S);
+  const tons = ['#6e675e', '#777066', '#655e56', '#7d766b'];
+  for (let i = 0; i < 4; i++) {
+    const lin = Math.floor(i / 2), col = i % 2;
+    // O deslocamento alternado por linha imita fiada de pedra.
+    const desl = (lin + v) % 2 ? 0.12 : 0;
+    ctx.fillStyle = tons[(x * 3 + y * 5 + i + v) % tons.length];
+    ctx.fillRect(bx + S * (col * 0.5 + desl) + 1, by + S * (lin * 0.5) + 1,
+      S * 0.5 - 2, S * 0.5 - 2);
+  }
 }
 
 function desenharJogador(e) {

@@ -12,7 +12,7 @@
 // ---------------------------------------------------------
 export const CLASSES = {
   cavaleiro: {
-    id: 'cavaleiro', name: 'Cavaleiro', icon: '🛡️', sprite: 'soldier',
+    id: 'cavaleiro', name: 'Cavaleiro', icon: '🛡️', sprite: 'soldier_a',
     tagline: 'Segura a linha de frente.',
     desc: 'Muita vida e defesa, dano corpo a corpo consistente. Mana curta — é quem aguenta o dano enquanto o grupo trabalha.',
     hp: { base: 130, per: 24 }, mp: { base: 30, per: 5 },
@@ -40,7 +40,7 @@ export const CLASSES = {
     start: { weapon: null, armor: null, extra: ['mpotion', 'mpotion'] },
   },
   arqueiro: {
-    id: 'arqueiro', name: 'Arqueiro', icon: '🏹', sprite: 'villager',
+    id: 'arqueiro', name: 'Arqueiro', icon: '🏹', sprite: 'villager_c',
     tagline: 'Ataca de longe, sem parar.',
     desc: 'Ataque básico à distância e a menor recarga do jogo. Vida média — sobrevive enquanto mantiver o espaço.',
     hp: { base: 100, per: 16 }, mp: { base: 50, per: 10 },
@@ -54,7 +54,7 @@ export const CLASSES = {
     start: { weapon: 'sword1', armor: null, extra: ['potion'] },
   },
   sacerdote: {
-    id: 'sacerdote', name: 'Sacerdote', icon: '✨', sprite: 'princess',
+    id: 'sacerdote', name: 'Sacerdote', icon: '✨', sprite: 'princess_a',
     tagline: 'Mantém o grupo de pé.',
     desc: 'Cura a si e a todos os aliados por perto. Sozinho é lento; num grupo, decide se ele volta vivo.',
     hp: { base: 95, per: 15 }, mp: { base: 80, per: 15 },
@@ -145,11 +145,15 @@ export const MTYPES = {
 
 // Tabela de nascimento: [tipo, mapa, x, y]
 export const SPAWNS = [
+  // Ilha de Aurora — arredores de Lumera
   ['slime', 'over', 7, 6], ['slime', 'over', 10, 9], ['slime', 'over', 5, 14], ['slime', 'over', 12, 13],
   ['bee', 'over', 24, 8], ['bee', 'over', 31, 13], ['bee', 'over', 27, 17],
-  ['snake', 'over', 30, 23], ['snake', 'over', 33, 26], ['snake', 'over', 28, 25],
+  // A cobra do pântano nascia em (30,23), que o gerador transforma em água:
+  // ela ficava presa, sem poder se mover nem ser alcançada.
+  ['snake', 'over', 31, 22], ['snake', 'over', 33, 26], ['snake', 'over', 28, 25],
   ['bat', 'over', 14, 4], ['bat', 'over', 22, 5],
 
+  // Minas de Aurora
   ['sworm', 'mine', 8, 14], ['sworm', 'mine', 17, 13], ['sworm', 'mine', 24, 14], ['sworm', 'mine', 13, 20],
   ['bat', 'mine', 6, 13], ['bat', 'mine', 20, 13], ['bat', 'mine', 16, 21],
   ['bworm', 'mine', 21, 10], ['bworm', 'mine', 25, 5],
@@ -157,11 +161,18 @@ export const SPAWNS = [
   ['ghost', 'mine', 14, 6], ['ghost', 'mine', 17, 7],
   ['gormak', 'mine', 7, 6],
 
-  ['wasp', 'vale', 23, 8], ['wasp', 'vale', 27, 12], ['wasp', 'vale', 30, 10], ['wasp', 'vale', 25, 15], ['wasp', 'vale', 21, 10],
-  ['flower', 'vale', 34, 7], ['flower', 'vale', 37, 12], ['flower', 'vale', 35, 16], ['flower', 'vale', 40, 10], ['flower', 'vale', 38, 17],
-  ['zombie', 'vale', 8, 27], ['zombie', 'vale', 13, 27], ['zombie', 'vale', 15, 29], ['zombie', 'vale', 7, 23],
-  ['spectre', 'vale', 12, 29], ['spectre', 'vale', 16, 23],
+  // Valedorn — campos a leste das muralhas
+  ['wasp', 'vale', 57, 12], ['wasp', 'vale', 61, 16], ['wasp', 'vale', 65, 11],
+  ['wasp', 'vale', 59, 22], ['wasp', 'vale', 62, 26], ['wasp', 'vale', 56, 30],
+  // Floresta de Elden (as clareiras abertas no gerador)
+  ['flower', 'vale', 67, 8], ['flower', 'vale', 70, 14], ['flower', 'vale', 68, 20],
+  ['flower', 'vale', 73, 11], ['flower', 'vale', 71, 26], ['flower', 'vale', 69, 32],
+  // Cemitério, a sudoeste
+  ['zombie', 'vale', 11, 47], ['zombie', 'vale', 16, 50], ['zombie', 'vale', 20, 53],
+  ['zombie', 'vale', 12, 56], ['zombie', 'vale', 22, 46],
+  ['spectre', 'vale', 14, 49], ['spectre', 'vale', 19, 56], ['spectre', 'vale', 9, 50],
 
+  // Catacumbas
   ['cultist', 'cata', 10, 9], ['cultist', 'cata', 18, 10], ['cultist', 'cata', 20, 9], ['cultist', 'cata', 23, 8], ['cultist', 'cata', 25, 10],
   ['spectre', 'cata', 5, 7], ['spectre', 'cata', 8, 9], ['spectre', 'cata', 6, 10],
   ['zombie', 'cata', 15, 14], ['zombie', 'cata', 13, 18],
@@ -172,17 +183,19 @@ export const SPAWNS = [
 // NPCS
 // ---------------------------------------------------------
 export const NPCS = [
-  { id: 'cedric', name: 'Cedric — Capitão da Guarda', img: 'guard', map: 'over', x: 13, y: 18 },
-  { id: 'mira', name: 'Mira — Alquimista', img: 'princess', map: 'over', x: 9, y: 23 },
-  { id: 'toren', name: 'Toren — Ferreiro', img: 'villager', map: 'over', x: 17, y: 23 },
-  { id: 'elara', name: 'Elara — Bibliotecária', img: 'princess', map: 'vale', x: 7, y: 11 },
-  { id: 'tomas', name: 'Irmão Tomas — Irmandade', img: 'villager', map: 'vale', x: 13, y: 12 },
-  { id: 'harlan', name: 'Mestre Harlan — Armeiro', img: 'guard', map: 'vale', x: 16, y: 10 },
-  { id: 'sela', name: 'Sela — Mercadora', img: 'princess', map: 'vale', x: 10, y: 7 },
-  { id: 'lyra', name: 'Capitã Lyra — Guarda de Ardentia', img: 'guard', map: 'vale', x: 13, y: 13 },
-  { id: 'aldous', name: 'Velho Aldous — Mendigo', img: 'villager', map: 'vale', x: 9, y: 15 },
-  { id: 'rosa', name: 'Rosa — Estalajadeira', img: 'princess', map: 'vale', x: 16, y: 21 },
-  { id: 'nilo', name: 'Nilo — Garoto Curioso', img: 'villager', map: 'vale', x: 7, y: 12 },
+  // Vila de Lumera
+  { id: 'cedric', name: 'Cedric — Capitão da Guarda', img: 'guard_a', map: 'over', x: 13, y: 18 },
+  { id: 'mira', name: 'Mira — Alquimista', img: 'princess_a', map: 'over', x: 9, y: 23 },
+  { id: 'toren', name: 'Toren — Ferreiro', img: 'villager_a', map: 'over', x: 17, y: 23 },
+  // Ardentia — cada um no lugar que faz sentido para o seu papel
+  { id: 'elara', name: 'Elara — Bibliotecária', img: 'princess_c', map: 'vale', x: 16, y: 18 },
+  { id: 'tomas', name: 'Irmão Tomas — Irmandade', img: 'villager_b', map: 'vale', x: 30, y: 12 },
+  { id: 'harlan', name: 'Mestre Harlan — Armeiro', img: 'guard_b', map: 'vale', x: 42, y: 24 },
+  { id: 'sela', name: 'Sela — Mercadora', img: 'princess_b', map: 'vale', x: 45, y: 24 },
+  { id: 'lyra', name: 'Capitã Lyra — Guarda de Ardentia', img: 'guard_a', map: 'vale', x: 30, y: 37 },
+  { id: 'aldous', name: 'Velho Aldous — Mendigo', img: 'villager_c', map: 'vale', x: 26, y: 26 },
+  { id: 'rosa', name: 'Rosa — Estalajadeira', img: 'princess', map: 'vale', x: 36, y: 46 },
+  { id: 'nilo', name: 'Nilo — Garoto Curioso', img: 'villager_b', map: 'vale', x: 33, y: 25 },
 ];
 
 // Lojas: quem vende o quê.
@@ -193,18 +206,19 @@ export const SHOPS = {
   sela: ['potion', 'bigpotion', 'mpotion', 'torch'],
 };
 
-// Onde cada mapa devolve quem morre.
+// Onde cada mapa devolve quem morre: a praça de Lumera e a de Ardentia.
 export const RESPAWN_POINTS = {
-  over: { map: 'over', x: 14, y: 27 },
-  mine: { map: 'over', x: 14, y: 27 },
-  vale: { map: 'vale', x: 13, y: 10 },
-  cata: { map: 'vale', x: 13, y: 10 },
+  over: { map: 'over', x: 14, y: 22 },
+  mine: { map: 'over', x: 14, y: 22 },
+  vale: { map: 'vale', x: 26, y: 25 },
+  cata: { map: 'vale', x: 26, y: 25 },
 };
 
 // Ligações entre mapas: tile 12 entra, tile 11 sai.
 export const PORTALS = {
   over: { enter: { map: 'mine', x: 15, y: 21 } },
   mine: { exit: { map: 'over', x: 18, y: 6 } },
+  // A entrada das catacumbas fica na capela do cemitério, fora das muralhas.
   vale: { enter: { map: 'cata', x: 14, y: 18 } },
-  cata: { exit: { map: 'vale', x: 11, y: 27 } },
+  cata: { exit: { map: 'vale', x: 17, y: 46 } },
 };
