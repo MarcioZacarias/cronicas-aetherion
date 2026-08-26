@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Personagens — Crônicas de Aetherion</title>
+<link rel="stylesheet" href="/css/ui.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="topo">
+    <div class="marca"><a href="/" style="text-decoration:none;color:inherit">CRÔNICAS DE AETHERION</a>
+      <span id="conta">carregando...</span></div>
+    <nav><button id="sair">Sair da conta</button></nav>
+  </header>
+
+  <section id="secLista">
+    <h2 style="margin-top:0">Seus personagens</h2>
+    <div id="lista"></div>
+    <p class="linha" style="margin-top:16px">
+      <button class="primario" id="btnNovo">+ Criar personagem</button>
+    </p>
+  </section>
+
+  <section id="secNovo" hidden>
+    <h2 style="margin-top:0">Novo personagem</h2>
+
+    <div class="caixa">
+      <label for="nick">Nome do personagem</label>
+      <input id="nick" type="text" maxlength="16" autocomplete="off" spellcheck="false"
+             placeholder="Como os outros jogadores vão te chamar">
+      <p class="sub" style="font-size:11px;margin-top:5px">
+        3 a 16 caracteres, letras e números. O nome é único no servidor e não pode ser trocado depois.
+      </p>
+    </div>
+
+    <h3 style="margin:24px 0 4px">Escolha a classe</h3>
+    <p class="sub" style="font-size:12px;margin-bottom:12px">
+      A classe define vida, mana, alcance do ataque e a magia. Não dá para mudar depois.
+    </p>
+    <div class="grade g2" id="classes"></div>
+
+    <p class="aviso" id="erro" hidden></p>
+
+    <p class="linha" style="margin-top:20px">
+      <button class="primario" id="btnCriar" disabled>Criar e entrar no jogo</button>
+      <button id="btnCancelar">Cancelar</button>
+    </p>
+  </section>
+
+</div>
+
+<script type="module">
+import { CLASSES, CLASS_IDS, baseStats } from '/shared/content.js';
+
+const $ = (id) => document.getElementById(id);
+let classeEscolhida = null;
+
+function falhar(msg) { const e = $('erro'); e.textContent = msg; e.hidden = false; }
+
+// ---------- lista ----------
+function desenharLista(chars) {
+  const el = $('lista');
+  if (!chars.length) {
+    el.innerHTML = '<p class="vazio">Você ainda não tem personagens. Crie o primeiro para entrar em Aurora.</p>';
+    return;
+  }
+  el.innerHTML = '';
+  for (const c of chars) {
+    const cls = CLASSES[c.classId] || { name: c.classId, icon: '❓' };
+    const div = document.createElement('div');
+    div.className = 'pers';
+    div.innerHTML = `
+      <div class="ic">${cls.icon}</div>
+      <div class="info">
+        <div class="nome"></div>
+        <div class="meta"></div>
+      </div>
+      <button class="primario">Jogar</button>
+      <button class="perigo">Apagar</button>`;
+    div.querySelector('.nome').textContent = c.nickname;
+    div.querySelector('.meta').textContent =
+      `${cls.name} · nível ${c.level} · ${c.gold} ouro` +
+      (c.lastPlayedAt ? ` · último acesso ${new Date(c.lastPlayedAt).toLocaleDateString('pt-BR')}` : ' · nunca jogado');
+    const [jogar, apagar] = div.querySelectorAll('button');
+    jogar.onclick = () => { location.href = `/jogo.html?char=${encodeURIComponent(c.id)}`; };
+    apagar.onclick = () => apagarPersonagem(c);
+    el.appendChild(div);
+  }
+}
+
+async function apagarPersonagem(c) {
+  if (!confirm(`Apagar ${c.nickname} (nível ${c.level})? Isso não tem volta.`)) return;
+  const r = await fetch(`/api/characters/${c.id}`, { method: 'DELETE' });
+  if (!r.ok) { const d = await r.json().catch(() => ({})); return alert(d.error || 'Falha ao apagar.'); }
+  carregar();
+}
+
+// ---------- criação ----------
+function desenharClasses() {
+  const el = $('classes');
+  el.innerHTML = '';
+  for (const id of CLASS_IDS) {
+    const c = CLASSES[id];
+    const s1 = baseStats(id, 1), s10 = baseStats(id, 10);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'classe';
+    b.setAttribute('aria-pressed', 'false');
+    b.innerHTML = `
+      <div class="ic">${c.icon}</div>
+      <div class="nome"></div>
+      <div class="tag"></div>
+      <div class="txt"></div>
+      <dl>
+        <dt>Vida</dt><dd>${s1.hpMax} → ${s10.hpMax} <span style="color:var(--texto-fraco)">(nv 10)</span></dd>
+        <dt>Mana</dt><dd>${s1.mpMax} → ${s10.mpMax}</dd>
+        <dt>Alcance</dt><dd>${c.range === 1 ? 'corpo a corpo' : c.range + ' tiles'}</dd>
+        <dt>Magia</dt><dd><strong style="color:var(--arcano)">${c.spell.name}</strong> — ${c.spell.desc}</dd>
+      </dl>`;
+    b.querySelector('.nome').textContent = c.name;
+    b.querySelector('.tag').textContent = c.tagline;
+    b.querySelector('.txt').textContent = c.desc;
+    b.onclick = () => {
+      classeEscolhida = id;
+      for (const outro of el.querySelectorAll('.classe')) outro.setAttribute('aria-pressed', 'false');
+      b.setAttribute('aria-pressed', 'true');
+      validar();
+    };
+    el.appendChild(b);
+  }
+}
+
+function validar() {
+  $('btnCriar').disabled = !(classeEscolhida && $('nick').value.trim().length >= 3);
+}
+
+$('nick').addEventListener('input', validar);
+
+$('btnNovo').onclick = () => { $('secLista').hidden = true; $('secNovo').hidden = false; $('nick').focus(); };
+$('btnCancelar').onclick = () => { $('secNovo').hidden = true; $('secLista').hidden = false; $('erro').hidden = true; };
+
+$('btnCriar').onclick = async () => {
+  $('erro').hidden = true;
+  $('btnCriar').disabled = true;
+  try {
+    const r = await fetch('/api/characters', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nickname: $('nick').value.trim(), classId: classeEscolhida }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || `Falha (HTTP ${r.status})`);
+    location.href = `/jogo.html?char=${encodeURIComponent(d.character.id)}`;
+  } catch (err) {
+    falhar(err.message);
+    $('btnCriar').disabled = false;
+  }
+};
+
+$('sair').onclick = async () => {
+  await fetch('/api/logout', { method: 'POST' });
+  location.href = '/';
+};
+
+// ---------- carga ----------
+async function carregar() {
+  const r = await fetch('/api/me');
+  if (r.status === 401) { location.href = '/entrar.html'; return; }
+  if (!r.ok) { $('conta').textContent = 'erro ao carregar'; return; }
+  const d = await r.json();
+  $('conta').textContent = `conectado como ${d.username}`;
+  desenharLista(d.characters);
+  // Conta nova cai direto na criação: é o único caminho possível mesmo.
+  if (!d.characters.length) $('btnNovo').click();
+}
+
+desenharClasses();
+carregar();
+</script>
+</body>
+</html>

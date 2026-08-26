@@ -1,0 +1,210 @@
+// =========================================================
+// Conteúdo do jogo: classes, itens, monstros e NPCs.
+// Compartilhado — o servidor usa para simular, o cliente para desenhar
+// e montar a UI. Os números aqui são a fonte da verdade dos dois lados.
+// =========================================================
+
+// ---------------------------------------------------------
+// CLASSES
+// Cada classe define curvas de atributo por nível e uma magia.
+// A do Sacerdote cura aliados: é o que faz um grupo valer mais do que
+// a soma dos jogadores sozinhos.
+// ---------------------------------------------------------
+export const CLASSES = {
+  cavaleiro: {
+    id: 'cavaleiro', name: 'Cavaleiro', icon: '🛡️', sprite: 'soldier',
+    tagline: 'Segura a linha de frente.',
+    desc: 'Muita vida e defesa, dano corpo a corpo consistente. Mana curta — é quem aguenta o dano enquanto o grupo trabalha.',
+    hp: { base: 130, per: 24 }, mp: { base: 30, per: 5 },
+    atk: { base: 6, per: 2.2 }, def: { base: 5, per: 1.5 },
+    range: 1, atkCd: 1900,
+    spell: {
+      id: 'exori', name: 'Exori', cost: 20, cd: 4000, kind: 'aoe',
+      radius: 1, power: { base: 18, per: 5 },
+      desc: 'Golpe circular que atinge tudo ao seu redor.',
+    },
+    start: { weapon: 'sword1', armor: 'armor1', extra: [] },
+  },
+  mago: {
+    id: 'mago', name: 'Mago', icon: '🔮', sprite: 'priest',
+    tagline: 'Dano bruto, corpo frágil.',
+    desc: 'O maior dano do jogo e o menor bolso de vida. Precisa de distância e de alguém segurando o inimigo.',
+    hp: { base: 80, per: 12 }, mp: { base: 90, per: 18 },
+    atk: { base: 3, per: 1.0 }, def: { base: 1, per: 0.6 },
+    range: 1, atkCd: 2200,
+    spell: {
+      id: 'flam', name: 'Exori Flam', cost: 25, cd: 2600, kind: 'bolt',
+      range: 5, power: { base: 30, per: 9 },
+      desc: 'Projétil de fogo em um alvo à distância.',
+    },
+    start: { weapon: null, armor: null, extra: ['mpotion', 'mpotion'] },
+  },
+  arqueiro: {
+    id: 'arqueiro', name: 'Arqueiro', icon: '🏹', sprite: 'villager',
+    tagline: 'Ataca de longe, sem parar.',
+    desc: 'Ataque básico à distância e a menor recarga do jogo. Vida média — sobrevive enquanto mantiver o espaço.',
+    hp: { base: 100, per: 16 }, mp: { base: 50, per: 10 },
+    atk: { base: 5, per: 1.8 }, def: { base: 2, per: 0.9 },
+    range: 4, atkCd: 1400,
+    spell: {
+      id: 'con', name: 'Exori Con', cost: 18, cd: 3200, kind: 'bolt',
+      range: 6, power: { base: 22, per: 6.5 },
+      desc: 'Flecha perfurante de longo alcance.',
+    },
+    start: { weapon: 'sword1', armor: null, extra: ['potion'] },
+  },
+  sacerdote: {
+    id: 'sacerdote', name: 'Sacerdote', icon: '✨', sprite: 'princess',
+    tagline: 'Mantém o grupo de pé.',
+    desc: 'Cura a si e a todos os aliados por perto. Sozinho é lento; num grupo, decide se ele volta vivo.',
+    hp: { base: 95, per: 15 }, mp: { base: 80, per: 15 },
+    atk: { base: 4, per: 1.3 }, def: { base: 3, per: 1.0 },
+    range: 1, atkCd: 2000,
+    spell: {
+      id: 'exura', name: 'Exura Sio', cost: 30, cd: 5000, kind: 'heal',
+      radius: 3, power: { base: 40, per: 11 },
+      desc: 'Restaura vida sua e de aliados num raio de 3 tiles.',
+    },
+    start: { weapon: null, armor: 'armor1', extra: ['potion', 'mpotion'] },
+  },
+};
+
+export const CLASS_IDS = Object.keys(CLASSES);
+
+export function xpNeeded(level) { return 50 * level * level; }
+
+// Atributos derivados: classe + nível. Equipamento entra por fora.
+export function baseStats(classId, level) {
+  const c = CLASSES[classId];
+  const n = level - 1;
+  return {
+    hpMax: Math.round(c.hp.base + c.hp.per * n),
+    mpMax: Math.round(c.mp.base + c.mp.per * n),
+    atk: Math.round(c.atk.base + c.atk.per * n),
+    def: Math.round(c.def.base + c.def.per * n),
+  };
+}
+
+export function spellPower(classId, level) {
+  const s = CLASSES[classId].spell;
+  return Math.round(s.power.base + s.power.per * (level - 1));
+}
+
+// ---------------------------------------------------------
+// ITENS
+// ---------------------------------------------------------
+export const ITEMS = {
+  sword1:    { name: 'Espada de Recruta', icon: '🗡️', slot: 'weapon', atk: 3, price: 50 },
+  sword2:    { name: 'Lâmina do Capataz', icon: '⚔️', slot: 'weapon', atk: 8 },
+  sword3:    { name: 'Espada de Aço', icon: '⚔️', slot: 'weapon', atk: 12, price: 250 },
+  shield1:   { name: 'Escudo de Madeira', icon: '🛡️', slot: 'shield', def: 2, price: 60 },
+  shield2:   { name: 'Escudo de Ferro', icon: '🛡️', slot: 'shield', def: 4, price: 220 },
+  armor1:    { name: 'Armadura de Couro', icon: '🥋', slot: 'armor', def: 3, price: 80 },
+  armor2:    { name: 'Armadura de Malha', icon: '⛓️', slot: 'armor', def: 6, price: 300 },
+  ring1:     { name: 'Anel do Mineiro', icon: '💍', slot: 'ring', atk: 1, def: 1 },
+  medallion: { name: 'Medalhão do Eclipse', icon: '🌑', slot: 'ring', atk: 2, def: 2 },
+  potion:    { name: 'Poção de Vida', icon: '🧪', use: 'heal', heal: 50, stack: true, price: 30 },
+  bigpotion: { name: 'Poção Forte', icon: '❤️', use: 'heal', heal: 120, stack: true, price: 70 },
+  mpotion:   { name: 'Poção de Mana', icon: '💙', use: 'mana', mana: 40, stack: true, price: 25 },
+  torch:     { name: 'Tocha', icon: '🔦', passive: 'Ilumina cavernas e criptas', price: 15 },
+  pickaxe:   { name: 'Picareta', icon: '⛏️', passive: 'Quebra paredes frágeis', price: 45 },
+  fragment:  { name: 'Fragmento do Abismo', icon: '🟣', passive: 'Frio ao toque. Algo pulsa dentro dele.' },
+};
+
+export const EQ_SLOTS = ['weapon', 'shield', 'armor', 'ring'];
+
+// ---------------------------------------------------------
+// MONSTROS
+// ---------------------------------------------------------
+export const MSPR = {
+  slime: { fw: 32, fh: 32 }, bee: { fw: 32, fh: 32 }, snake: { fw: 32, fh: 32 },
+  bat: { fw: 32, fh: 32 }, sworm: { fw: 32, fh: 32 }, bworm: { fw: 35, fh: 50 },
+  eyeball: { fw: 32, fh: 38 }, ghost: { fw: 40, fh: 46 }, pumpking: { fw: 46, fh: 46 },
+  wasp: { fw: 32, fh: 32 }, flower: { fw: 60, fh: 76 },
+  zombie: { fw: 64, fh: 64, people: true }, cultist: { fw: 64, fh: 64, people: true },
+  priest: { fw: 64, fh: 64, people: true },
+};
+
+export const MTYPES = {
+  slime:   { name: 'Slime da Floresta', hp: 40, dmg: [2, 6], xp: 25, gold: [3, 10], speed: 900, drops: [['potion', 0.25]] },
+  bee:     { name: 'Abelha Gigante', hp: 35, dmg: [3, 7], xp: 30, gold: [3, 9], speed: 550, drops: [['mpotion', 0.2]] },
+  snake:   { name: 'Cobra do Pântano', hp: 60, dmg: [4, 10], xp: 40, gold: [5, 15], speed: 750, drops: [['potion', 0.2], ['armor1', 0.06]] },
+  bat:     { name: 'Morcego da Caverna', hp: 30, dmg: [1, 5], xp: 20, gold: [2, 8], speed: 550, drops: [['mpotion', 0.25]] },
+  sworm:   { name: 'Verme Rastejante', hp: 55, dmg: [4, 9], xp: 45, gold: [4, 12], speed: 850, drops: [['potion', 0.25]] },
+  bworm:   { name: 'Verme Colossal', hp: 140, dmg: [8, 15], xp: 110, gold: [10, 25], speed: 1100, drops: [['potion', 0.3], ['shield1', 0.1]] },
+  eyeball: { name: 'Horror Menor', hp: 90, dmg: [7, 14], xp: 90, gold: [8, 20], speed: 700, drops: [['mpotion', 0.3]] },
+  ghost:   { name: 'Espírito Corrompido', hp: 120, dmg: [9, 16], xp: 130, gold: [10, 26], speed: 800, drops: [['mpotion', 0.3], ['potion', 0.2]] },
+  gormak:  { name: 'Gormak, o Corrompido', hp: 350, dmg: [8, 16], xp: 600, gold: [80, 120], speed: 1100, drops: [['sword2', 1]], sprite: 'pumpking', scale: 1.5, boss: true },
+  wasp:    { name: 'Vespa de Guerra', hp: 90, dmg: [8, 14], xp: 70, gold: [8, 18], speed: 500, drops: [['mpotion', 0.25]] },
+  flower:  { name: 'Flor Carnívora de Elden', hp: 180, dmg: [12, 20], xp: 160, gold: [0, 0], speed: 900, static: true, drops: [['bigpotion', 0.35], ['potion', 0.3]] },
+  zombie:  { name: 'Morto Errante', hp: 150, dmg: [10, 18], xp: 140, gold: [10, 24], speed: 1150, drops: [['potion', 0.3]] },
+  spectre: { name: 'Espectro do Cemitério', hp: 200, dmg: [14, 22], xp: 200, gold: [14, 30], speed: 800, sprite: 'ghost', scale: 1.15, drops: [['mpotion', 0.35], ['bigpotion', 0.15]] },
+  cultist: { name: 'Cultista da Irmandade', hp: 180, dmg: [13, 22], xp: 210, gold: [16, 34], speed: 750, drops: [['bigpotion', 0.2], ['mpotion', 0.2]] },
+  corvus:  { name: 'Alto Sacerdote Corvus', hp: 900, dmg: [16, 28], xp: 2000, gold: [300, 400], speed: 1000, drops: [['medallion', 1]], sprite: 'priest', scale: 1.2, boss: true },
+};
+
+// Tabela de nascimento: [tipo, mapa, x, y]
+export const SPAWNS = [
+  ['slime', 'over', 7, 6], ['slime', 'over', 10, 9], ['slime', 'over', 5, 14], ['slime', 'over', 12, 13],
+  ['bee', 'over', 24, 8], ['bee', 'over', 31, 13], ['bee', 'over', 27, 17],
+  ['snake', 'over', 30, 23], ['snake', 'over', 33, 26], ['snake', 'over', 28, 25],
+  ['bat', 'over', 14, 4], ['bat', 'over', 22, 5],
+
+  ['sworm', 'mine', 8, 14], ['sworm', 'mine', 17, 13], ['sworm', 'mine', 24, 14], ['sworm', 'mine', 13, 20],
+  ['bat', 'mine', 6, 13], ['bat', 'mine', 20, 13], ['bat', 'mine', 16, 21],
+  ['bworm', 'mine', 21, 10], ['bworm', 'mine', 25, 5],
+  ['eyeball', 'mine', 18, 4], ['eyeball', 'mine', 22, 7], ['eyeball', 'mine', 26, 4],
+  ['ghost', 'mine', 14, 6], ['ghost', 'mine', 17, 7],
+  ['gormak', 'mine', 7, 6],
+
+  ['wasp', 'vale', 23, 8], ['wasp', 'vale', 27, 12], ['wasp', 'vale', 30, 10], ['wasp', 'vale', 25, 15], ['wasp', 'vale', 21, 10],
+  ['flower', 'vale', 34, 7], ['flower', 'vale', 37, 12], ['flower', 'vale', 35, 16], ['flower', 'vale', 40, 10], ['flower', 'vale', 38, 17],
+  ['zombie', 'vale', 8, 27], ['zombie', 'vale', 13, 27], ['zombie', 'vale', 15, 29], ['zombie', 'vale', 7, 23],
+  ['spectre', 'vale', 12, 29], ['spectre', 'vale', 16, 23],
+
+  ['cultist', 'cata', 10, 9], ['cultist', 'cata', 18, 10], ['cultist', 'cata', 20, 9], ['cultist', 'cata', 23, 8], ['cultist', 'cata', 25, 10],
+  ['spectre', 'cata', 5, 7], ['spectre', 'cata', 8, 9], ['spectre', 'cata', 6, 10],
+  ['zombie', 'cata', 15, 14], ['zombie', 'cata', 13, 18],
+  ['corvus', 'cata', 14, 4],
+];
+
+// ---------------------------------------------------------
+// NPCS
+// ---------------------------------------------------------
+export const NPCS = [
+  { id: 'cedric', name: 'Cedric — Capitão da Guarda', img: 'guard', map: 'over', x: 13, y: 18 },
+  { id: 'mira', name: 'Mira — Alquimista', img: 'princess', map: 'over', x: 9, y: 23 },
+  { id: 'toren', name: 'Toren — Ferreiro', img: 'villager', map: 'over', x: 17, y: 23 },
+  { id: 'elara', name: 'Elara — Bibliotecária', img: 'princess', map: 'vale', x: 7, y: 11 },
+  { id: 'tomas', name: 'Irmão Tomas — Irmandade', img: 'villager', map: 'vale', x: 13, y: 12 },
+  { id: 'harlan', name: 'Mestre Harlan — Armeiro', img: 'guard', map: 'vale', x: 16, y: 10 },
+  { id: 'sela', name: 'Sela — Mercadora', img: 'princess', map: 'vale', x: 10, y: 7 },
+  { id: 'lyra', name: 'Capitã Lyra — Guarda de Ardentia', img: 'guard', map: 'vale', x: 13, y: 13 },
+  { id: 'aldous', name: 'Velho Aldous — Mendigo', img: 'villager', map: 'vale', x: 9, y: 15 },
+  { id: 'rosa', name: 'Rosa — Estalajadeira', img: 'princess', map: 'vale', x: 16, y: 21 },
+  { id: 'nilo', name: 'Nilo — Garoto Curioso', img: 'villager', map: 'vale', x: 7, y: 12 },
+];
+
+// Lojas: quem vende o quê.
+export const SHOPS = {
+  mira: ['potion', 'mpotion', 'torch'],
+  toren: ['sword1', 'shield1', 'armor1', 'pickaxe'],
+  harlan: ['sword3', 'shield2', 'armor2'],
+  sela: ['potion', 'bigpotion', 'mpotion', 'torch'],
+};
+
+// Onde cada mapa devolve quem morre.
+export const RESPAWN_POINTS = {
+  over: { map: 'over', x: 14, y: 27 },
+  mine: { map: 'over', x: 14, y: 27 },
+  vale: { map: 'vale', x: 13, y: 10 },
+  cata: { map: 'vale', x: 13, y: 10 },
+};
+
+// Ligações entre mapas: tile 12 entra, tile 11 sai.
+export const PORTALS = {
+  over: { enter: { map: 'mine', x: 15, y: 21 } },
+  mine: { exit: { map: 'over', x: 18, y: 6 } },
+  vale: { enter: { map: 'cata', x: 14, y: 18 } },
+  cata: { exit: { map: 'vale', x: 11, y: 27 } },
+};

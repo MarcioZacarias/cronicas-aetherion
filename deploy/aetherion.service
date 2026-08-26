@@ -1,0 +1,53 @@
+# Serviço do servidor de jogo.
+# Instalar:
+#   sudo cp deploy/aetherion.service /etc/systemd/system/aetherion.service
+#   sudo systemctl daemon-reload && sudo systemctl enable --now aetherion
+# Acompanhar:
+#   sudo journalctl -u aetherion -f
+
+[Unit]
+Description=Crônicas de Aetherion — servidor de jogo
+Documentation=https://github.com/MarcioZacarias/cronicas-aetherion
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=aetherion
+Group=aetherion
+WorkingDirectory=/var/www/aetherion
+EnvironmentFile=/etc/aetherion/env
+ExecStart=/usr/bin/node server/index.js
+
+# O processo salva os personagens no SIGTERM; sem essa folga o systemd
+# mataria a tempo de perder o progresso de quem estava online.
+KillSignal=SIGTERM
+TimeoutStopSec=20
+Restart=on-failure
+RestartSec=3
+
+# ---- contenção ----
+# O serviço só precisa ler o código e falar com o Postgres pelo loopback.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+# Nada em disco precisa ser escrito: o estado todo vive no banco.
+ReadOnlyPaths=/var/www/aetherion
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aetherion
+
+[Install]
+WantedBy=multi-user.target

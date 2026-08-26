@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrar — Crônicas de Aetherion</title>
+<link rel="stylesheet" href="/css/ui.css">
+</head>
+<body>
+<div class="wrap estreito">
+
+  <header class="topo">
+    <div class="marca"><a href="/" style="text-decoration:none;color:inherit">CRÔNICAS DE AETHERION</a></div>
+  </header>
+
+  <div class="abas" role="tablist">
+    <button id="abaEntrar" role="tab" aria-selected="true">Entrar</button>
+    <button id="abaCriar" role="tab" aria-selected="false">Criar conta</button>
+  </div>
+
+  <div class="caixa">
+    <form id="form" novalidate>
+      <h3 id="titulo">Entrar na sua conta</h3>
+      <p class="sub" id="ajuda" style="font-size:12px">Use o usuário e a senha que você cadastrou.</p>
+
+      <label for="usuario">Usuário</label>
+      <input id="usuario" name="username" type="text" autocomplete="username"
+             autocapitalize="none" spellcheck="false" required>
+
+      <label for="senha">Senha</label>
+      <input id="senha" name="password" type="password" autocomplete="current-password" required>
+
+      <p class="aviso" id="erro" hidden></p>
+
+      <button class="primario largo" id="enviar" type="submit" style="margin-top:18px">Entrar</button>
+    </form>
+
+    <p class="sub" id="rodapeCriar" style="font-size:12px;margin-top:14px;display:none">
+      Não pedimos e-mail. Isso também quer dizer que <strong>não há como recuperar a senha</strong>
+      se você esquecê-la — anote em algum lugar seguro.
+    </p>
+  </div>
+
+  <p class="centro" style="margin-top:20px;font-size:12px">
+    <a href="/">← voltar para a página inicial</a>
+  </p>
+
+</div>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+let modo = location.hash === '#criar' ? 'criar' : 'entrar';
+
+function pintar() {
+  const criando = modo === 'criar';
+  $('abaEntrar').setAttribute('aria-selected', String(!criando));
+  $('abaCriar').setAttribute('aria-selected', String(criando));
+  $('titulo').textContent = criando ? 'Criar uma conta nova' : 'Entrar na sua conta';
+  $('ajuda').textContent = criando
+    ? 'Usuário de 3 a 20 caracteres (letras, números ou _) e senha de pelo menos 8.'
+    : 'Use o usuário e a senha que você cadastrou.';
+  $('enviar').textContent = criando ? 'Criar conta' : 'Entrar';
+  $('senha').setAttribute('autocomplete', criando ? 'new-password' : 'current-password');
+  $('rodapeCriar').style.display = criando ? 'block' : 'none';
+  $('erro').hidden = true;
+  history.replaceState(null, '', criando ? '#criar' : '#');
+}
+
+$('abaEntrar').onclick = () => { modo = 'entrar'; pintar(); };
+$('abaCriar').onclick = () => { modo = 'criar'; pintar(); };
+
+function falhar(msg) {
+  const e = $('erro');
+  e.textContent = msg;
+  e.hidden = false;
+}
+
+$('form').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  $('erro').hidden = true;
+  const username = $('usuario').value.trim();
+  const password = $('senha').value;
+
+  if (!username || !password) return falhar('Preencha usuário e senha.');
+  if (modo === 'criar' && password.length < 8) return falhar('A senha precisa de pelo menos 8 caracteres.');
+
+  $('enviar').disabled = true;
+  $('enviar').textContent = 'Aguarde...';
+  try {
+    const r = await fetch(modo === 'criar' ? '/api/register' : '/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    const dados = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(dados.error || `Falha (HTTP ${r.status})`);
+    location.href = '/personagens.html';
+  } catch (err) {
+    falhar(err.message || 'Não foi possível conectar ao servidor.');
+    $('enviar').disabled = false;
+    $('enviar').textContent = modo === 'criar' ? 'Criar conta' : 'Entrar';
+  }
+});
+
+// Quem já tem sessão válida não precisa ver esta tela.
+fetch('/api/me').then((r) => { if (r.ok) location.href = '/personagens.html'; }).catch(() => {});
+
+pintar();
+</script>
+</body>
+</html>

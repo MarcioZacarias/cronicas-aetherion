@@ -1,0 +1,152 @@
+/* Estilo das telas fora do jogo (landing, login, personagens).
+   Mesma paleta do canvas para a transição não parecer outro produto. */
+
+:root {
+  --bg: #0d0b08;
+  --bg-alto: #17140f;
+  --caixa: #1e1a14;
+  --borda: #6b5a3e;
+  --borda-suave: #35301f;
+  --texto: #e8dcc0;
+  --texto-fraco: #9a8a6a;
+  --ouro: #f0d060;
+  --arcano: #a08cf0;
+  --verde: #7dd87d;
+  --vermelho: #e04b4b;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--texto);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 15px;
+  line-height: 1.6;
+  /* Vinheta sutil: dá profundidade sem pedir imagem de fundo. */
+  background-image:
+    radial-gradient(ellipse at 50% 0%, rgba(160, 140, 240, 0.10), transparent 60%),
+    radial-gradient(ellipse at 50% 100%, rgba(240, 208, 96, 0.06), transparent 55%);
+}
+
+a { color: var(--ouro); }
+
+.wrap { width: min(94vw, 960px); margin: 0 auto; padding: 32px 0 56px; }
+.estreito { width: min(94vw, 440px); }
+
+/* ---------- cabeçalho ---------- */
+.topo {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--borda-suave);
+  margin-bottom: 28px; flex-wrap: wrap;
+}
+.marca { font-size: 15px; color: var(--ouro); font-weight: bold; letter-spacing: 1px; }
+.marca span { color: var(--texto-fraco); font-weight: normal; display: block; font-size: 11px; letter-spacing: 0; }
+.topo nav { display: flex; gap: 14px; align-items: center; font-size: 13px; }
+
+/* ---------- tipografia ---------- */
+h1 { font-size: 30px; color: var(--ouro); line-height: 1.25; margin-bottom: 10px; }
+h2 { font-size: 18px; color: var(--arcano); margin: 32px 0 12px; font-weight: normal; }
+h3 { font-size: 15px; color: var(--ouro); margin-bottom: 8px; }
+.sub { color: var(--texto-fraco); font-size: 14px; max-width: 62ch; }
+.centro { text-align: center; }
+
+/* ---------- caixas ---------- */
+.caixa {
+  background: var(--caixa); border: 2px solid var(--borda);
+  border-radius: 10px; padding: 20px;
+}
+.grade { display: grid; gap: 14px; }
+.g2 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.g4 { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+
+/* ---------- formulários ---------- */
+label { display: block; font-size: 12px; color: var(--texto-fraco); margin: 14px 0 5px; letter-spacing: .5px; }
+input[type=text], input[type=password] {
+  width: 100%; padding: 11px 12px; font-family: inherit; font-size: 15px;
+  background: #100e0a; border: 1px solid var(--borda); border-radius: 6px; color: var(--texto);
+}
+input:focus { outline: 2px solid var(--arcano); outline-offset: 1px; }
+
+button, .botao {
+  font-family: inherit; font-size: 14px; cursor: pointer;
+  padding: 11px 20px; border-radius: 8px;
+  border: 2px solid var(--borda); background: #2a241a; color: var(--ouro);
+  display: inline-block; text-decoration: none; text-align: center;
+}
+button:hover, .botao:hover { background: #3a3226; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+.primario { background: var(--ouro); color: #221c10; border-color: var(--ouro); font-weight: bold; }
+.primario:hover { background: #ffe58a; }
+.perigo { border-color: #7a2f2f; color: #e08a8a; background: #2a1414; }
+.perigo:hover { background: #3a1c1c; }
+.largo { width: 100%; }
+.linha { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+/* ---------- avisos ---------- */
+.aviso {
+  padding: 10px 12px; border-radius: 6px; font-size: 13px; margin-top: 14px;
+  border: 1px solid var(--vermelho); background: rgba(224, 75, 75, .12); color: #f3b0b0;
+}
+.aviso.ok { border-color: var(--verde); background: rgba(125, 216, 125, .12); color: #bce8bc; }
+.aviso[hidden] { display: none; }
+
+/* ---------- abas ---------- */
+.abas { display: flex; gap: 8px; margin-bottom: 4px; }
+.abas button { flex: 1; border-radius: 8px 8px 0 0; border-bottom-color: transparent; }
+.abas button[aria-selected=true] { background: var(--caixa); color: var(--ouro); border-color: var(--arcano); }
+
+/* ---------- cartões de classe ---------- */
+.classe {
+  border: 2px solid var(--borda); background: var(--caixa); border-radius: 10px;
+  padding: 16px; cursor: pointer; text-align: left; color: inherit; width: 100%;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.classe:hover { background: #262019; }
+.classe[aria-pressed=true] { border-color: var(--arcano); background: #241f30; }
+.classe .ic { font-size: 26px; }
+.classe .nome { color: var(--ouro); font-size: 16px; font-weight: bold; }
+.classe .tag { color: var(--arcano); font-size: 12px; }
+.classe .txt { color: var(--texto-fraco); font-size: 12px; line-height: 1.5; }
+.classe dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 11px; margin-top: 6px; }
+.classe dt { color: var(--texto-fraco); }
+.classe dd { color: var(--texto); }
+
+/* ---------- lista de personagens ---------- */
+.pers {
+  display: flex; align-items: center; gap: 14px; padding: 14px;
+  border: 2px solid var(--borda); border-radius: 10px; background: var(--caixa); margin-bottom: 10px;
+}
+.pers .ic { font-size: 30px; }
+.pers .info { flex: 1; min-width: 0; }
+.pers .nome { color: var(--ouro); font-size: 16px; font-weight: bold; }
+.pers .meta { color: var(--texto-fraco); font-size: 12px; }
+.vazio { color: var(--texto-fraco); font-size: 13px; padding: 20px; text-align: center; border: 1px dashed var(--borda-suave); border-radius: 8px; }
+
+/* ---------- rodapé ---------- */
+.rodape {
+  margin-top: 44px; padding-top: 18px; border-top: 1px solid var(--borda-suave);
+  color: var(--texto-fraco); font-size: 11px; line-height: 1.8;
+}
+
+/* ---------- landing ---------- */
+.heroi { padding: 40px 0 12px; }
+.heroi h1 { font-size: clamp(28px, 6vw, 46px); letter-spacing: 1px; }
+.heroi .lema { color: var(--arcano); font-size: clamp(13px, 2.4vw, 16px); margin-bottom: 18px; }
+.recurso { padding: 16px; border: 1px solid var(--borda-suave); border-radius: 8px; background: rgba(30, 26, 20, .55); }
+.recurso h3 { font-size: 14px; }
+.recurso p { font-size: 13px; color: var(--texto-fraco); }
+.passos { list-style: none; counter-reset: p; }
+.passos li { counter-increment: p; padding: 8px 0 8px 34px; position: relative; font-size: 14px; color: var(--texto-fraco); }
+.passos li::before {
+  content: counter(p); position: absolute; left: 0; top: 8px;
+  width: 22px; height: 22px; border-radius: 50%; background: #2a241a;
+  border: 1px solid var(--borda); color: var(--ouro); font-size: 12px;
+  display: grid; place-items: center;
+}
+
+@media (max-width: 560px) {
+  .wrap { padding: 20px 0 40px; }
+  h1 { font-size: 24px; }
+}

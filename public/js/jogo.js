@@ -1,0 +1,854 @@
+// =========================================================
+// Cliente do jogo.
+//
+// Ele NÃO simula nada: desenha o que o servidor manda e envia intenção.
+// A única coisa que inventa é a interpolação — o servidor manda posição em
+// tiles a 10 Hz, e aqui isso vira movimento contínuo a 60 fps.
+// =========================================================
+
+import { buildWorld, TILE, BLOCK } from '/shared/world.js';
+import { CLASSES, ITEMS, MSPR, NPCS, SHOPS, xpNeeded } from '/shared/content.js';
+
+const $ = (id) => document.getElementById(id);
+const charId = new URLSearchParams(location.search).get('char');
+
+if (!charId) location.href = '/personagens.html';
+
+// ---------------------------------------------------------
+// Canvas
+// ---------------------------------------------------------
+const canvas = $('game');
+const ctx = canvas.getContext('2d');
+let ZOOM = 2;
+
+function resize() {
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+  ZOOM = Math.max(2, Math.round(Math.min(canvas.width, canvas.height) / 320));
+  ctx.imageSmoothingEnabled = false;
+}
+addEventListener('resize', resize);
+resize();
+
+// ---------------------------------------------------------
+// Sprites
+// ---------------------------------------------------------
+const SPRITES = ['soldier', 'guard', 'princess', 'villager', 'slime', 'bat', 'snake', 'bee',
+  'sworm', 'bworm', 'eyeball', 'ghost', 'pumpking', 'grass', 'dirt', 'dirt2', 'water', 'tree',
+  'chest', 'house', 'hole', 'wall', 'rock', 'house2', 'chapel', 'grave', 'wasp', 'zombie',
+  'cultist', 'priest', 'boat', 'flower'];
+const IMG = {};
+
+function carregarSprites() {
+  return Promise.all(SPRITES.map((nome) => new Promise((resolve) => {
+    const im = new Image();
+    im.onload = () => resolve();
+    // Um sprite que falha não pode travar o jogo inteiro; ele só não desenha.
+    im.onerror = () => { console.warn('sprite ausente:', nome); resolve(); };
+    im.src = `/assets/${nome}.png`;
+    IMG[nome] = im;
+  })));
+}
+
+// ---------------------------------------------------------
+// Estado
+// ---------------------------------------------------------
+const MAPS = buildWorld();
+let mapaAtual = 'over';
+let eu = null;                 // estado privado vindo de 'you'
+let meuId = null;
+const ents = new Map();        // id -> entidade interpolada
+let dest = null;               // marcador do click-to-move
+let alvo = null;               // id do monstro atacado
+let recargaMagia = 0;          // espelho local do cooldown que o servidor informa
+let floats = [], effects = [], bolhas = new Map();
+const cam = { x: 0, y: 0 };
+let waterFrame = 0, waterT = 0, pulse = 0;
+
+function entidade(id, dados) {
+  let e = ents.get(id);
+  if (!e) {
+    e = { id, px: dados.x * TILE, py: dados.y * TILE, frame: 0, ftime: 0 };
+    ents.set(id, e);
+  }
+  Object.assign(e, dados, { visto: true });
+  return e;
+}
+
+// ---------------------------------------------------------
+// Rede
+// ---------------------------------------------------------
+let ws = null, tentativas = 0, fechandoDeProposito = false;
+
+function conectar() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${proto}//${location.host}/ws?char=${encodeURIComponent(charId)}`);
+
+  ws.onopen = () => {
+    tentativas = 0;
+    conexaoStatus('online', '');
+    esconderAviso();
+  };
+
+  ws.onmessage = (ev) => {
+    let m;
+    try { m = JSON.parse(ev.data); } catch { return; }
+    receber(m);
+  };
+
+  ws.onclose = (ev) => {
+    if (fechandoDeProposito) return;
+    // 4001 = o servidor derrubou esta sessão porque o personagem entrou
+    // em outro lugar. Reconectar aqui só faria as duas abas brigarem.
+    if (ev.code === 4001) {
+      return mostrarAviso('Sessão encerrada',
+        'Este personagem entrou no jogo em outra aba ou dispositivo.',
+        [['Voltar aos personagens', '/personagens.html']]);
+    }
+    if (ev.code === 4401 || ev.code === 1008) {
+      return mostrarAviso('Sessão expirada', 'Faça login novamente.', [['Entrar', '/entrar.html']]);
+    }
+    conexaoStatus('caiu', 'reconectando...');
+    tentativas += 1;
+    if (tentativas > 8) {
+      return mostrarAviso('Sem conexão',
+        'Não foi possível falar com o servidor. Verifique sua internet.',
+        [['Tentar de novo', location.href], ['Personagens', '/personagens.html']]);
+    }
+    // Recuo exponencial com teto: não martelar um servidor que caiu.
+    setTimeout(conectar, Math.min(8000, 500 * 2 ** tentativas));
+  };
+
+  ws.onerror = () => conexaoStatus('ruim', 'instável');
+}
+
+function enviar(msg) {
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify(msg));
+}
+
+function conexaoStatus(classe, texto) {
+  const el = $('conexao');
+  el.className = classe === 'online' ? '' : classe;
+  el.textContent = texto || (classe === 'online' ? 'online' : classe);
+}
+
+function receber(m) {
+  switch (m.t) {
+    case 'map': {
+      mapaAtual = m.map;
+      // Ao trocar de mapa, nada do mapa antigo vale mais.
+      ents.clear(); floats = []; effects = []; bolhas.clear();
+      dest = null; alvo = null;
+      break;
+    }
+    case 'you': {
+      eu = m; meuId = m.id;
+      recargaMagia = m.spellCd || 0;
+      pintarHud();
+      if ($('inv').classList.contains('open')) pintarInventario();
+      if ($('shop').classList.contains('open')) pintarLoja();
+      break;
+    }
+    case 'snap': {
+      for (const e of ents.values()) e.visto = false;
+      for (const p of m.players) entidade(p.id, { ...p, tipo: 'jogador' });
+      for (const mo of m.monsters) entidade(mo.id, { ...mo, tipo: 'monstro' });
+      for (const [id, e] of ents) if (!e.visto) ents.delete(id);
+      if (alvo && !ents.has(alvo)) alvo = null;
+      $('online').textContent = m.players.length > 1
+        ? `${m.players.length} jogadores neste mapa` : '';
+      break;
+    }
+    case 'log': registrar(m.text); break;
+    case 'chat': {
+      addChat(m.from, m.text);
+      bolhas.set(m.id, { texto: m.text, ate: performance.now() + 5000 });
+      break;
+    }
+    case 'joined': registrar(`${m.nick} entrou no mapa.`); break;
+    case 'kill': if (m.by) registrar(`${m.by} derrotou ${m.name}.`); break;
+    case 'died': if (m.id !== meuId) registrar(`${m.nick} tombou.`); break;
+    case 'chest': break;
+    case 'fx': efeito(m); break;
+    default: break;
+  }
+}
+
+// ---------------------------------------------------------
+// Efeitos visuais vindos do servidor
+// ---------------------------------------------------------
+function efeito(m) {
+  const cx = m.x * TILE + 16, cy = m.y * TILE + 16;
+  switch (m.kind) {
+    case 'dmg': flutuar(m.x, m.y, `-${m.amount}`, '#ff4444'); break;
+    case 'hit': flutuar(m.x, m.y, `-${m.amount}`, '#ff8844'); break;
+    case 'heal': flutuar(m.x, m.y, `+${m.amount}`, '#7dd87d'); break;
+    case 'xp': if (m.to === meuId) flutuar(m.x, m.y, `+${m.amount} XP`, '#a08cf0'); break;
+    case 'levelup': flutuar(m.x, m.y, 'LEVEL UP!', '#ffe066'); break;
+    case 'slash': effects.push({ tipo: 'slash', x: cx, y: cy, life: 220, max: 220 }); break;
+    case 'aoe': effects.push({ tipo: 'aoe', x: cx, y: cy, life: 500, max: 500 }); break;
+    case 'bolt':
+    case 'shot':
+      effects.push({
+        tipo: m.kind, x: cx, y: cy,
+        x2: m.tx * TILE + 16, y2: m.ty * TILE + 16, life: 260, max: 260,
+      });
+      break;
+    default: break;
+  }
+}
+
+function flutuar(tx, ty, txt, cor) {
+  floats.push({ x: tx * TILE + 16, y: ty * TILE, txt, cor, life: 1200 });
+}
+
+// ---------------------------------------------------------
+// HUD
+// ---------------------------------------------------------
+function registrar(texto) { $('log').textContent = texto; }
+
+function addChat(quem, texto) {
+  const log = $('chatlog');
+  const d = document.createElement('div');
+  const b = document.createElement('b');
+  b.textContent = `${quem}: `;
+  d.appendChild(b);
+  d.appendChild(document.createTextNode(texto));
+  log.appendChild(d);
+  while (log.children.length > 8) log.removeChild(log.firstChild);
+}
+
+function pintarHud() {
+  if (!eu) return;
+  const cls = CLASSES[eu.cls];
+  $('nick').textContent = `${cls ? cls.icon : ''} ${eu.nick}`;
+  $('lvl').textContent = eu.level;
+  $('hpbar').style.width = `${Math.max(0, 100 * eu.hp / eu.hpMax)}%`;
+  $('hptxt').textContent = `${eu.hp}/${eu.hpMax}`;
+  $('mpbar').style.width = `${Math.max(0, 100 * eu.mp / eu.mpMax)}%`;
+  $('mptxt').textContent = `${eu.mp}/${eu.mpMax}`;
+  const need = eu.xpNext, prev = xpNeeded(eu.level - 1) || 0;
+  $('xpbar').style.width = `${Math.max(0, Math.min(100, 100 * (eu.xp - prev) / (need - prev)))}%`;
+  $('xptxt').textContent = `XP ${eu.xp}`;
+  $('gold').textContent = eu.gold;
+  if (cls) $('spellcost').textContent = `${cls.spell.cost} MP`;
+}
+
+// ---------------------------------------------------------
+// Aviso de tela cheia
+// ---------------------------------------------------------
+function mostrarAviso(titulo, texto, acoes = []) {
+  $('avisoTitulo').textContent = titulo;
+  $('avisoTexto').textContent = texto;
+  const box = $('avisoAcoes');
+  box.innerHTML = '';
+  for (const [rotulo, href] of acoes) {
+    const a = document.createElement('a');
+    a.textContent = rotulo;
+    a.href = href;
+    box.appendChild(a);
+  }
+  $('aviso').style.display = 'flex';
+}
+function esconderAviso() { $('aviso').style.display = 'none'; }
+
+// ---------------------------------------------------------
+// Inventário
+// ---------------------------------------------------------
+function pintarInventario() {
+  if (!eu) return;
+  for (const el of document.querySelectorAll('.eqslot')) {
+    const id = eu.eq[el.dataset.slot];
+    const it = id && ITEMS[id];
+    el.querySelector('span').textContent = it ? `${it.icon} ${it.name}` : '—';
+  }
+  const grid = $('grid');
+  grid.innerHTML = '';
+  eu.inv.forEach((slot, i) => {
+    const it = ITEMS[slot.id];
+    if (!it) return;
+    const div = document.createElement('div');
+    div.className = 'slot';
+    div.innerHTML = `<div>${it.icon}</div><small></small>${slot.qty > 1 ? `<span class="qty">${slot.qty}</span>` : ''}`;
+    div.querySelector('small').textContent = it.name;
+    div.onclick = () => enviar({ t: 'use', idx: i });
+    grid.appendChild(div);
+  });
+  for (let i = eu.inv.length; i < 12; i++) {
+    const div = document.createElement('div');
+    div.className = 'slot';
+    grid.appendChild(div);
+  }
+  const cls = CLASSES[eu.cls];
+  $('stats').innerHTML = '';
+  const linhas = [
+    `Classe: ${cls.name} — ${cls.tagline}`,
+    `Ataque ${eu.atk} · Defesa ${eu.def} · Alcance ${cls.range === 1 ? 'corpo a corpo' : `${cls.range} tiles`}`,
+    `Magia: ${cls.spell.name} (${cls.spell.cost} MP) — ${cls.spell.desc}`,
+    'Toque num item para usar ou equipar; no slot equipado para tirar.',
+  ];
+  for (const l of linhas) {
+    const p = document.createElement('div');
+    p.textContent = l;
+    $('stats').appendChild(p);
+  }
+}
+
+for (const el of document.querySelectorAll('.eqslot')) {
+  el.onclick = () => enviar({ t: 'unequip', slot: el.dataset.slot });
+}
+
+// ---------------------------------------------------------
+// Loja
+// ---------------------------------------------------------
+let lojaAtual = null;
+
+function abrirLoja(npcId) {
+  lojaAtual = npcId;
+  const npc = NPCS.find((n) => n.id === npcId);
+  $('shopname').textContent = npc ? npc.name : 'Loja';
+  pintarLoja();
+  $('shop').classList.add('open');
+}
+
+function pintarLoja() {
+  if (!lojaAtual || !eu) return;
+  $('shopgold').textContent = `Seu ouro: ${eu.gold}`;
+  const rows = $('shoprows');
+  rows.innerHTML = '';
+  for (const id of SHOPS[lojaAtual] || []) {
+    const it = ITEMS[id];
+    const div = document.createElement('div');
+    div.className = 'shoprow';
+    div.innerHTML = `<span class="ic">${it.icon}</span><span class="nm"></span><button></button>`;
+    div.querySelector('.nm').textContent = it.name;
+    const b = div.querySelector('button');
+    b.textContent = `${it.price} 💰`;
+    b.disabled = eu.gold < it.price;
+    b.onclick = () => enviar({ t: 'buy', npc: lojaAtual, item: id });
+    rows.appendChild(div);
+  }
+}
+
+// ---------------------------------------------------------
+// Entrada do jogador
+// ---------------------------------------------------------
+function meuEnt() { return meuId ? ents.get(meuId) : null; }
+
+canvas.addEventListener('pointerdown', (ev) => {
+  const me = meuEnt();
+  if (!me) return;
+  const tx = Math.floor((cam.x + ev.clientX / ZOOM) / TILE);
+  const ty = Math.floor((cam.y + ev.clientY / ZOOM) / TILE);
+  const M = MAPS[mapaAtual];
+  if (tx < 0 || ty < 0 || tx >= M.w || ty >= M.h) return;
+
+  // Prioridade do toque: monstro > NPC > cenário interativo > andar.
+  const mob = [...ents.values()].find((e) => e.tipo === 'monstro' && e.x === tx && e.y === ty);
+  if (mob) { alvo = mob.id; enviar({ t: 'attack', id: mob.id }); return; }
+
+  const npc = NPCS.find((n) => n.map === mapaAtual && n.x === tx && n.y === ty);
+  if (npc) return tocarNpc(npc, me);
+
+  const tile = M.tiles[ty][tx];
+  if ((tile === 4 || tile === 10) && Math.abs(tx - me.x) <= 1 && Math.abs(ty - me.y) <= 1) {
+    return enviar({ t: 'interact', x: tx, y: ty });
+  }
+  if (BLOCK.has(tile)) {
+    // Clicar numa parede não deve mover: dá o retorno e para por aí.
+    if (tile === 4 || tile === 10) registrar('Chegue mais perto para interagir.');
+    return;
+  }
+  dest = { x: tx, y: ty };
+  alvo = null;
+  enviar({ t: 'go', x: tx, y: ty });
+});
+
+function tocarNpc(npc, me) {
+  if (Math.abs(npc.x - me.x) > 2 || Math.abs(npc.y - me.y) > 2) {
+    dest = { x: npc.x, y: npc.y };
+    enviar({ t: 'go', x: npc.x, y: npc.y });
+    registrar(`Indo falar com ${npc.name.split(' ')[0]}...`);
+    return;
+  }
+  if (SHOPS[npc.id]) return abrirLoja(npc.id);
+  registrar(`${npc.name}: "Que os ventos lhe sejam bons, viajante."`);
+}
+
+// direcional
+const segurando = { up: false, down: false, left: false, right: false };
+const VETOR = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+
+for (const b of document.querySelectorAll('#dpad button')) {
+  const d = b.dataset.d;
+  const liga = (ev) => { ev.preventDefault(); segurando[d] = true; };
+  const desliga = () => { segurando[d] = false; };
+  b.addEventListener('pointerdown', liga);
+  b.addEventListener('pointerup', desliga);
+  b.addEventListener('pointerleave', desliga);
+  b.addEventListener('pointercancel', desliga);
+}
+
+const TECLAS = {
+  ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
+  w: 'up', s: 'down', a: 'left', d: 'right', W: 'up', S: 'down', A: 'left', D: 'right',
+};
+
+addEventListener('keydown', (ev) => {
+  if (document.activeElement === $('chatin')) {
+    if (ev.key === 'Escape') $('chatin').blur();
+    return;
+  }
+  const dir = TECLAS[ev.key];
+  if (dir) { segurando[dir] = true; ev.preventDefault(); return; }
+  if (ev.key === 'b' || ev.key === 'B') alternarInventario();
+  else if (ev.key === 'e' || ev.key === 'E') enviar({ t: 'spell' });
+  else if (ev.key === 'Escape') { enviar({ t: 'stop' }); dest = null; alvo = null; fecharModais(); }
+  else if (ev.key === 'Enter') { ev.preventDefault(); $('chatin').focus(); }
+});
+
+addEventListener('keyup', (ev) => {
+  const dir = TECLAS[ev.key];
+  if (dir) segurando[dir] = false;
+});
+
+// O passo é limitado no cliente só para não inundar o socket; quem decide
+// se o passo vale é o servidor.
+let ultimoPasso = 0;
+function passosSegurados(agora) {
+  if (agora - ultimoPasso < 120) return;
+  for (const [dir, ativo] of Object.entries(segurando)) {
+    if (!ativo) continue;
+    const [dx, dy] = VETOR[dir];
+    enviar({ t: 'step', dx, dy });
+    dest = null; alvo = null;
+    ultimoPasso = agora;
+    return;
+  }
+}
+
+// botões
+function alternarInventario() {
+  const el = $('inv');
+  el.classList.toggle('open');
+  if (el.classList.contains('open')) pintarInventario();
+}
+function fecharModais() {
+  $('inv').classList.remove('open');
+  $('shop').classList.remove('open');
+  lojaAtual = null;
+}
+$('bagbtn').onclick = alternarInventario;
+$('closeinv').onclick = () => $('inv').classList.remove('open');
+$('closeshop').onclick = () => { $('shop').classList.remove('open'); lojaAtual = null; };
+$('spellbtn').onclick = () => enviar({ t: 'spell' });
+$('stopbtn').onclick = () => { enviar({ t: 'stop' }); dest = null; alvo = null; };
+
+$('chatform').addEventListener('submit', (ev) => {
+  ev.preventDefault();
+  const texto = $('chatin').value.trim();
+  if (texto) enviar({ t: 'chat', text: texto });
+  $('chatin').value = '';
+  $('chatin').blur();
+});
+
+// ---------------------------------------------------------
+// Render
+// ---------------------------------------------------------
+function ds(img, sx, sy, sw, sh, dx, dy, dw, dh) {
+  if (!img || !img.complete || !img.naturalWidth) return;
+  ctx.drawImage(img, sx, sy, sw, sh,
+    Math.round((dx - cam.x) * ZOOM), Math.round((dy - cam.y) * ZOOM),
+    (dw || sw) * ZOOM, (dh || sh) * ZOOM);
+}
+
+function barraVida(px, py, hp, hpMax, w, yoff) {
+  const pct = Math.max(0, Math.min(1, hp / hpMax));
+  const x = (px - cam.x + (TILE - w) / 2) * ZOOM, y = (py - cam.y - yoff) * ZOOM;
+  ctx.fillStyle = '#000';
+  ctx.fillRect(x - 1, y - 1, w * ZOOM + 2, 3 * ZOOM + 2);
+  ctx.fillStyle = pct > 0.6 ? '#4cd04c' : pct > 0.3 ? '#e0c040' : '#e04040';
+  ctx.fillRect(x, y, w * ZOOM * pct, 3 * ZOOM);
+}
+
+function simboloEclipse(cx, cy, r, alpha) {
+  ctx.fillStyle = `rgba(10,10,15,${alpha})`;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fill();
+  ctx.strokeStyle = `rgba(90,60,150,${alpha})`;
+  ctx.lineWidth = ZOOM;
+  for (let i = 0; i < 7; i++) {
+    const a = -Math.PI / 2 + i * Math.PI / 7;
+    ctx.beginPath();
+    ctx.moveTo(cx - Math.cos(a) * r, cy - Math.sin(a) * r);
+    ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+    ctx.stroke();
+  }
+}
+
+function nomeRegiao() {
+  const me = meuEnt();
+  if (!me) return MAPS[mapaAtual].name;
+  const { x, y } = me;
+  if (mapaAtual === 'mine') {
+    if (y >= 16) return 'Minas de Aurora — Galeria Superior';
+    if (y >= 9) return 'Minas de Aurora — Poço Profundo';
+    if (x <= 13) return 'Minas de Aurora — Câmara do Capataz';
+    return 'Minas de Aurora — Ruínas Antigas';
+  }
+  if (mapaAtual === 'cata') {
+    if (y >= 12) return 'Catacumbas — Escadaria da Capela';
+    if (y <= 7 && x >= 10 && x <= 19) return 'Catacumbas — Altar do Eclipse';
+    if (x <= 9) return 'Catacumbas — Criptas Antigas';
+    return 'Catacumbas de Ardentia';
+  }
+  if (mapaAtual === 'vale') {
+    if (x >= 4 && x <= 19 && y >= 4 && y <= 14) return 'Ardentia — Capital de Valedorn';
+    if (x >= 33 && y <= 20) return 'Floresta de Elden';
+    if (x <= 18 && y >= 20) return 'Cemitério de Ardentia';
+    if (x >= 20 && y <= 17) return 'Campos de Valedorn';
+    return 'Valedorn';
+  }
+  if (x >= 6 && x <= 22 && y >= 16 && y <= 27) return 'Vila de Lumera';
+  if (x >= 26 && y >= 20) return 'Pântano de Aurora';
+  if (y <= 8 && x >= 14 && x <= 23) return 'Entrada das Minas';
+  if (x <= 15 && y <= 16) return 'Floresta de Aurora';
+  return 'Ilha de Aurora';
+}
+
+function temTocha() {
+  if (!eu) return false;
+  return eu.inv.some((s) => s.id === 'torch') || Object.values(eu.eq).includes('torch');
+}
+
+// Interpolação: aproxima px/py do tile autoritativo. 0.128 px/ms é
+// exatamente 32px em 250ms, a cadência de passo do servidor.
+function interpolar(dt) {
+  for (const e of ents.values()) {
+    const gx = e.x * TILE, gy = e.y * TILE;
+    const vel = 0.128 * dt;
+    const andando = e.px !== gx || e.py !== gy;
+    if (andando) {
+      e.px += Math.sign(gx - e.px) * Math.min(vel, Math.abs(gx - e.px));
+      e.py += Math.sign(gy - e.py) * Math.min(vel, Math.abs(gy - e.py));
+      e.ftime += dt;
+      const passo = e.tipo === 'jogador' ? 110 : 160;
+      if (e.ftime > passo) { e.ftime = 0; e.frame = (e.frame + 1) % (e.tipo === 'jogador' ? 8 : 3); }
+    } else if (e.tipo === 'jogador') {
+      e.frame = 0;
+    } else {
+      e.ftime += dt;
+      if (e.ftime > 300) { e.ftime = 0; e.frame = (e.frame + 1) % 3; }
+    }
+    // Teleporte ou dessincronização grande: corta direto em vez de deslizar
+    // pela tela inteira.
+    if (Math.abs(gx - e.px) > TILE * 3 || Math.abs(gy - e.py) > TILE * 3) {
+      e.px = gx; e.py = gy;
+    }
+  }
+}
+
+function render(dt) {
+  waterT += dt;
+  if (waterT > 400) { waterT = 0; waterFrame = (waterFrame + 1) % 3; }
+  pulse += dt;
+
+  const M = MAPS[mapaAtual];
+  const escuro = !!M.dark;
+  const me = meuEnt();
+  const vw = canvas.width / ZOOM, vh = canvas.height / ZOOM;
+  const foco = me || { px: M.w * TILE / 2, py: M.h * TILE / 2 };
+
+  cam.x = Math.max(0, Math.min(M.w * TILE - vw, foco.px + 16 - vw / 2));
+  cam.y = Math.max(0, Math.min(M.h * TILE - vh, foco.py + 16 - vh / 2));
+  if (M.w * TILE < vw) cam.x = (M.w * TILE - vw) / 2;
+  if (M.h * TILE < vh) cam.y = (M.h * TILE - vh) / 2;
+
+  ctx.fillStyle = '#060606';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const x0 = Math.max(0, Math.floor(cam.x / TILE)), y0 = Math.max(0, Math.floor(cam.y / TILE));
+  const x1 = Math.min(M.w - 1, x0 + Math.ceil(vw / TILE) + 1);
+  const y1 = Math.min(M.h - 1, y0 + Math.ceil(vh / TILE) + 1);
+
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const t = M.tiles[y][x], v = M.deco[y][x];
+    const bx = (x * TILE - cam.x) * ZOOM, by = (y * TILE - cam.y) * ZOOM, S = TILE * ZOOM;
+    if (escuro) {
+      if (t === 6 || t === 13) { ds(IMG.wall, 0, 0, 32, 32, x * TILE, y * TILE); continue; }
+      if (t === 8) {
+        ds(IMG.wall, 0, 0, 32, 32, x * TILE, y * TILE);
+        ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(bx + S * .5, by + S * .1); ctx.lineTo(bx + S * .35, by + S * .45);
+        ctx.lineTo(bx + S * .6, by + S * .6); ctx.lineTo(bx + S * .45, by + S * .9);
+        ctx.stroke(); continue;
+      }
+      if (t === 9) {
+        ds(IMG.wall, 0, 0, 32, 32, x * TILE, y * TILE);
+        simboloEclipse(bx + 16 * ZOOM, by + 16 * ZOOM, 11 * ZOOM, 1); continue;
+      }
+      if (t === 14) {
+        ds(IMG.wall, 0, 0, 32, 32, x * TILE, y * TILE);
+        ctx.fillStyle = '#4a3018'; ctx.fillRect(bx + S * .1, by + S * .1, S * .8, S * .8);
+        ['#a04040', '#4060a0', '#a0a040', '#40a060'].forEach((c, i) => {
+          ctx.fillStyle = c; ctx.fillRect(bx + S * (.16 + i * .18), by + S * .18, S * .12, S * .6);
+        });
+        continue;
+      }
+      ds(IMG.dirt, (v % 3) * 32, 160, 32, 32, x * TILE, y * TILE);
+      if (t === 7) ds(IMG.rock, 0, 0, 32, 32, x * TILE, y * TILE);
+      if (t === 15) ds(IMG.grave, 0, 0, 32, 32, x * TILE, y * TILE);
+      if (t === 4) ds(IMG.chest, 0, 0, 32, 32, x * TILE, y * TILE);
+      if (t === 11) {
+        ctx.fillStyle = 'rgba(240,208,96,.25)'; ctx.fillRect(bx, by, S, S);
+        ctx.fillStyle = '#f0d060'; ctx.font = `bold ${10 * ZOOM}px Courier New`;
+        ctx.textAlign = 'center'; ctx.fillText('⬆', bx + 16 * ZOOM, by + 22 * ZOOM);
+      }
+      if (t === 10) {
+        const g = 0.6 + 0.4 * Math.sin(pulse / 300);
+        const cx = bx + 16 * ZOOM, cy = by + 16 * ZOOM;
+        ctx.fillStyle = `rgba(120,60,200,${0.25 * g})`;
+        ctx.beginPath(); ctx.arc(cx, cy, 14 * ZOOM * g, 0, 7); ctx.fill();
+        ctx.fillStyle = '#9a5cf0';
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - 8 * ZOOM); ctx.lineTo(cx + 5 * ZOOM, cy);
+        ctx.lineTo(cx, cy + 8 * ZOOM); ctx.lineTo(cx - 5 * ZOOM, cy);
+        ctx.closePath(); ctx.fill();
+      }
+    } else {
+      if (t === 2) { ds(IMG.water, waterFrame * 32, 160, 32, 32, x * TILE, y * TILE); continue; }
+      if (t === 5) { ds(IMG.dirt2, (v % 3) * 32, 160, 32, 32, x * TILE, y * TILE); continue; }
+      if (t === 13) { ds(IMG.wall, 0, 0, 32, 32, x * TILE, y * TILE); continue; }
+      if (t === 1 || t === 12) ds(IMG.dirt, (v % 3) * 32, 160, 32, 32, x * TILE, y * TILE);
+      else ds(IMG.grass, (v % 3) * 32, 160, 32, 32, x * TILE, y * TILE);
+      if (t === 7) ds(IMG.rock, 0, 0, 32, 32, x * TILE, y * TILE);
+      if (t === 15) ds(IMG.grave, 0, 0, 32, 32, x * TILE, y * TILE);
+      if (t === 4) ds(IMG.chest, 0, 0, 32, 32, x * TILE, y * TILE);
+      if (t === 14) {
+        ctx.fillStyle = '#4a3018'; ctx.fillRect(bx + S * .05, by, S * .9, S);
+        ['#a04040', '#4060a0', '#a0a040', '#40a060'].forEach((c, i) => {
+          ctx.fillStyle = c; ctx.fillRect(bx + S * (.12 + i * .19), by + S * .1, S * .13, S * .75);
+        });
+      }
+      if (t === 16) {
+        ctx.fillStyle = '#5a3a1a'; ctx.fillRect(bx + S * .44, by + S * .35, S * .12, S * .6);
+        ctx.fillStyle = '#8a6034'; ctx.fillRect(bx + S * .1, by + S * .08, S * .8, S * .34);
+        ctx.strokeStyle = '#4a3018'; ctx.lineWidth = Math.max(1, ZOOM * .7);
+        ctx.strokeRect(bx + S * .1, by + S * .08, S * .8, S * .34);
+        ctx.fillStyle = '#3a2810';
+        ctx.fillRect(bx + S * .18, by + S * .16, S * .5, S * .05);
+        ctx.fillRect(bx + S * .18, by + S * .26, S * .62, S * .05);
+      }
+    }
+  }
+
+  if (mapaAtual === 'over' && M.holeAnchor) {
+    ds(IMG.hole, 0, 0, 96, 96, M.holeAnchor.x * TILE, M.holeAnchor.y * TILE);
+  }
+  if (M.boat) ds(IMG.boat, 0, 0, 64, 40, M.boat.x * TILE - 16, M.boat.y * TILE - 4);
+  if (mapaAtual === 'cata' && M.altar) {
+    simboloEclipse((M.altar.x * TILE - cam.x + 16) * ZOOM,
+      (M.altar.y * TILE - cam.y + 48) * ZOOM, 26 * ZOOM, 0.5);
+  }
+
+  // Tudo que tem "pé no chão" entra numa lista ordenada por Y, para quem
+  // está mais ao sul aparecer na frente.
+  const dr = [];
+  if (!escuro) {
+    for (let y = y0; y <= Math.min(M.h - 1, y1 + 3); y++) for (let x = x0; x <= x1; x++) {
+      if (M.tiles[y][x] === 3) {
+        dr.push({ y: y * TILE, f: () => ds(IMG.tree, 0, 0, 96, 144, x * TILE - 32, y * TILE - 112) });
+      }
+    }
+    for (const hh of M.houses || []) {
+      dr.push({ y: (hh.y + 5) * TILE, f: () => ds(IMG[hh.img], 0, 0, 160, 160, hh.x * TILE, hh.y * TILE) });
+    }
+    for (const hh of M.chapels || []) {
+      dr.push({ y: (hh.y + 5) * TILE, f: () => ds(IMG.chapel, 0, 0, 160, 160, hh.x * TILE, hh.y * TILE) });
+    }
+    for (const n of NPCS) {
+      if (n.map !== mapaAtual) continue;
+      dr.push({ y: n.y * TILE, f: () => {
+        ds(IMG[n.img], 0, 2 * 64, 64, 64, n.x * TILE - 16, n.y * TILE - 32);
+        ctx.fillStyle = SHOPS[n.id] ? '#f0d060' : '#7dd87d';
+        ctx.font = `bold ${7 * ZOOM}px Courier New`;
+        ctx.textAlign = 'center';
+        ctx.fillText(SHOPS[n.id] ? `${n.name.split(' ')[0]} 💰` : n.name.split(' ')[0],
+          (n.x * TILE - cam.x + 16) * ZOOM, (n.y * TILE - cam.y - 14) * ZOOM);
+      } });
+    }
+  }
+
+  for (const e of ents.values()) {
+    if (e.tipo === 'monstro') {
+      dr.push({ y: e.py, f: () => desenharMonstro(e) });
+    } else {
+      dr.push({ y: e.py, f: () => desenharJogador(e) });
+    }
+  }
+
+  dr.sort((a, b) => a.y - b.y);
+  for (const d of dr) d.f();
+
+  if (dest) {
+    const bx = (dest.x * TILE - cam.x) * ZOOM, by = (dest.y * TILE - cam.y) * ZOOM, S = TILE * ZOOM;
+    const gl = 0.55 + 0.45 * Math.sin(pulse / 180);
+    ctx.strokeStyle = `rgba(240,208,96,${gl})`;
+    ctx.lineWidth = 2;
+    const c = S * 0.28;
+    ctx.beginPath();
+    ctx.moveTo(bx, by + c); ctx.lineTo(bx, by); ctx.lineTo(bx + c, by);
+    ctx.moveTo(bx + S - c, by); ctx.lineTo(bx + S, by); ctx.lineTo(bx + S, by + c);
+    ctx.moveTo(bx + S, by + S - c); ctx.lineTo(bx + S, by + S); ctx.lineTo(bx + S - c, by + S);
+    ctx.moveTo(bx + c, by + S); ctx.lineTo(bx, by + S); ctx.lineTo(bx, by + S - c);
+    ctx.stroke();
+  }
+
+  desenharEfeitos(dt);
+
+  if (escuro) {
+    const foco2 = me || { px: 0, py: 0 };
+    const cx = (foco2.px + 16 - cam.x) * ZOOM, cy = (foco2.py + 16 - cam.y) * ZOOM;
+    const rad = (temTocha() ? 5.2 : 2.6) * TILE * ZOOM;
+    const g = ctx.createRadialGradient(cx, cy, rad * 0.35, cx, cy, rad);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(1, 'rgba(0,0,0,0.96)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  desenharFlutuantes(dt);
+  $('region').textContent = nomeRegiao();
+}
+
+function desenharJogador(e) {
+  const andando = e.px !== e.x * TILE || e.py !== e.y * TILE;
+  const col = andando ? 1 + e.frame : 0;
+  const sprite = IMG[e.sprite] || IMG.soldier;
+  ctx.globalAlpha = e.dead ? 0.35 : 1;
+  ds(sprite, col * 64, (e.d || 0) * 64, 64, 64, e.px - 16, e.py - 32);
+  ctx.globalAlpha = 1;
+  barraVida(e.px, e.py, e.hp, e.hpMax, 26, 36);
+
+  // Nome: o meu em dourado, os outros em verde — dá para se achar na tela
+  // mesmo com várias pessoas em cima do mesmo tile.
+  ctx.font = `bold ${7 * ZOOM}px Courier New`;
+  ctx.textAlign = 'center';
+  const nx = (e.px - cam.x + 16) * ZOOM, ny = (e.py - cam.y - 22) * ZOOM;
+  ctx.fillStyle = '#000';
+  ctx.fillText(`${e.nick} (${e.lvl})`, nx + 1, ny + 1);
+  ctx.fillStyle = e.id === meuId ? '#f0d060' : '#8fe08f';
+  ctx.fillText(`${e.nick} (${e.lvl})`, nx, ny);
+
+  const bolha = bolhas.get(e.id);
+  if (bolha && performance.now() < bolha.ate) {
+    ctx.font = `${7 * ZOOM}px Courier New`;
+    ctx.fillStyle = '#000';
+    ctx.fillText(bolha.texto, nx + 1, ny - 9 * ZOOM + 1);
+    ctx.fillStyle = '#e8dcc0';
+    ctx.fillText(bolha.texto, nx, ny - 9 * ZOOM);
+  }
+}
+
+function desenharMonstro(e) {
+  const sp = MSPR[e.sprite] || { fw: 32, fh: 32 };
+  const s = e.scale || 1;
+  const dw = sp.fw * s, dh = sp.fh * s;
+  ds(IMG[e.sprite], e.frame * sp.fw, (e.d || 0) * sp.fh, sp.fw, sp.fh,
+    e.px + 16 - dw / 2, e.py + 32 - dh, dw, dh);
+  barraVida(e.px, e.py, e.hp, e.hpMax, e.boss ? 30 : 24, dh - 26);
+  if (e.boss) {
+    ctx.fillStyle = '#ff5555';
+    ctx.font = `bold ${7 * ZOOM}px Courier New`;
+    ctx.textAlign = 'center';
+    ctx.fillText(e.name, (e.px - cam.x + 16) * ZOOM, (e.py - cam.y - dh + 8) * ZOOM);
+  }
+  if (alvo === e.id) {
+    ctx.strokeStyle = '#ff2222';
+    ctx.lineWidth = 2;
+    ctx.strokeRect((e.px + 16 - dw / 2 - cam.x) * ZOOM, (e.py + 32 - dh - cam.y) * ZOOM,
+      dw * ZOOM, dh * ZOOM);
+  }
+}
+
+function desenharEfeitos(dt) {
+  for (const f of effects) {
+    f.life -= dt;
+    const p = 1 - f.life / f.max;
+    const cx = (f.x - cam.x) * ZOOM, cy = (f.y - cam.y) * ZOOM;
+    if (f.tipo === 'slash') {
+      ctx.strokeStyle = `rgba(255,255,255,${1 - p})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 10 * ZOOM * p + 4, -0.9 + p * 2, 0.9 + p * 2);
+      ctx.stroke();
+    } else if (f.tipo === 'aoe') {
+      const r = TILE * 1.5 * ZOOM * p;
+      ctx.strokeStyle = `rgba(255,140,40,${1 - p})`;
+      ctx.lineWidth = 5 * (1 - p) + 1;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.stroke();
+      ctx.strokeStyle = `rgba(255,220,120,${(1 - p) * 0.8})`;
+      ctx.beginPath(); ctx.arc(cx, cy, r * 0.7, 0, 7); ctx.stroke();
+    } else if (f.tipo === 'bolt' || f.tipo === 'shot') {
+      const x2 = (f.x2 - cam.x) * ZOOM, y2 = (f.y2 - cam.y) * ZOOM;
+      const px = cx + (x2 - cx) * p, py = cy + (y2 - cy) * p;
+      const cor = f.tipo === 'bolt' ? '255,150,40' : '220,220,180';
+      ctx.strokeStyle = `rgba(${cor},${0.7 * (1 - p)})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(px, py); ctx.stroke();
+      ctx.fillStyle = `rgb(${cor})`;
+      ctx.beginPath(); ctx.arc(px, py, 3 * ZOOM, 0, 7); ctx.fill();
+    }
+  }
+  effects = effects.filter((f) => f.life > 0);
+}
+
+function desenharFlutuantes(dt) {
+  ctx.font = `bold ${9 * ZOOM}px Courier New`;
+  ctx.textAlign = 'center';
+  for (const f of floats) {
+    f.life -= dt;
+    f.y -= dt * 0.02;
+    ctx.globalAlpha = Math.min(1, f.life / 400);
+    ctx.fillStyle = '#000';
+    ctx.fillText(f.txt, (f.x - cam.x) * ZOOM + 1, (f.y - cam.y) * ZOOM + 1);
+    ctx.fillStyle = f.cor;
+    ctx.fillText(f.txt, (f.x - cam.x) * ZOOM, (f.y - cam.y) * ZOOM);
+    ctx.globalAlpha = 1;
+  }
+  floats = floats.filter((f) => f.life > 0);
+}
+
+// ---------------------------------------------------------
+// Laço principal
+// ---------------------------------------------------------
+let ultimo = 0;
+function laco(t) {
+  const dt = Math.min(50, t - ultimo);
+  ultimo = t;
+  passosSegurados(t);
+  interpolar(dt);
+  render(dt);
+  atualizarRecarga(dt);
+  requestAnimationFrame(laco);
+}
+
+// O servidor manda o cooldown restante junto do estado privado; aqui só
+// descontamos o tempo entre uma atualização e outra para a bolinha ficar fluida.
+function atualizarRecarga(dt) {
+  const cd = $('spellcd');
+  if (!eu) return;
+  recargaMagia = Math.max(0, recargaMagia - dt);
+  const total = CLASSES[eu.cls].spell.cd;
+  if (recargaMagia > 0) {
+    cd.style.display = 'block';
+    cd.style.height = `${100 * recargaMagia / total}%`;
+  } else {
+    cd.style.display = 'none';
+  }
+}
+
+carregarSprites().then(() => {
+  conectar();
+  requestAnimationFrame(laco);
+});

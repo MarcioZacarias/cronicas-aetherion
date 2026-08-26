@@ -9,3 +9,7 @@ Thumbs.db
 *.log
 *.tmp
 *.bak
+
+# Node
+node_modules/
+npm-debug.log*
