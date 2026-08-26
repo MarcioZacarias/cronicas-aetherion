@@ -307,7 +307,7 @@
         ]
       }
     },
-    "telhado:cinza2": {
+    "telhado:roxo": {
       "origem": "Roof_Flat_Purple",
       "fatias": {
         "nw": [
@@ -366,7 +366,7 @@
         ]
       }
     },
-    "telhado:cinza3": {
+    "telhado:cinza2": {
       "origem": "Roof_Flat_Grey",
       "fatias": {
         "nw": [
@@ -425,7 +425,7 @@
         ]
       }
     },
-    "telhado:cinza4": {
+    "telhado:cinza3": {
       "origem": "Roof_Flat_Slate_Light",
       "fatias": {
         "nw": [
@@ -661,7 +661,7 @@
         ]
       }
     },
-    "telhado:marrom2": {
+    "telhado:sepia": {
       "origem": "Roof_Zelda_Brown",
       "fatias": {
         "nw": [
@@ -897,7 +897,7 @@
         ]
       }
     },
-    "piso:cinza2": {
+    "piso:ardosia": {
       "origem": "Cobble_1_Slate",
       "fatias": {
         "nw": [
@@ -956,7 +956,7 @@
         ]
       }
     },
-    "piso:palha": {
+    "piso:cinza2": {
       "origem": "Cobble_2_Grey",
       "fatias": {
         "nw": [
@@ -1251,7 +1251,7 @@
         ]
       }
     },
-    "parede:palha2": {
+    "parede:cinza": {
       "origem": "Square_Brick_Grey",
       "fatias": {
         "nw": [
@@ -1369,7 +1369,7 @@
         ]
       }
     },
-    "parede:cinza": {
+    "parede:cinza2": {
       "origem": "Square_Brick_Slate",
       "fatias": {
         "nw": [

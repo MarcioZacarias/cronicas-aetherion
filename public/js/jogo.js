@@ -88,7 +88,7 @@ const SPRITES = ['soldier', 'guard', 'princess', 'villager', 'slime', 'bat', 'sn
   // Variantes vestidas geradas por tools/vestir-npcs.py — o pacote LPC
   // incluído traz só o corpo, sem as camadas de cabelo e roupa.
   'villager_a', 'villager_b', 'villager_c', 'guard_a', 'guard_b', 'soldier_a',
-  'princess_a', 'princess_b', 'princess_c', 'lpc-sets'];
+  'princess_a', 'princess_b', 'princess_c', 'lpc-sets', 'lpc-telhados'];
 const IMG = {};
 
 // Índices dos atlas: city.png (portas/janelas recortadas das fachadas) e
@@ -96,6 +96,7 @@ const IMG = {};
 // como fatias de 9 — ver tools/importar-lpc.py).
 let CITY = null;
 let SETS = null;
+let TELHADOS = null;
 
 function carregarSprites() {
   const imagens = SPRITES.map((nome) => new Promise((resolve) => {
@@ -114,7 +115,11 @@ function carregarSprites() {
     .then((r) => r.json())
     .then((j) => { SETS = j; })
     .catch(() => { console.warn('lpc-sets.json ausente: telhados e calçamento não serão desenhados'); });
-  return Promise.all([...imagens, indice, telhados]);
+  const catTelhados = fetch('/assets/lpc-telhados.json')
+    .then((r) => r.json())
+    .then((j) => { TELHADOS = j; })
+    .catch(() => { console.warn('lpc-telhados.json ausente: telhados não serão desenhados'); });
+  return Promise.all([...imagens, indice, telhados, catTelhados]);
 }
 
 // ---------------------------------------------------------
@@ -964,13 +969,17 @@ function pecaSet(chave, fatia, dx, dy) {
 // beiral do próprio telhado já faz a transição.
 function desenharPredio(b) {
   const v = b.v;
-  const linhasTelhado = b.h - 2;
 
-  const chaveTelhado = `telhado:${b.telhado}`;
-  for (let cy = 0; cy < linhasTelhado; cy++) {
-    for (let cx = 0; cx < b.w; cx++) {
-      pecaSet(chaveTelhado, fatia9(cx, cy, b.w, linhasTelhado),
-        (b.x + cx) * TILE, (b.y + cy) * TILE);
+  // O telhado é uma peça INTEIRA de 5x4, repetida por módulo. Tentar
+  // costurá-lo a partir de bordas produz uma serra: as bordas do LPC são
+  // tacaniças diagonais feitas para um canto específico.
+  if (TELHADOS) {
+    const t = TELHADOS.telhados[b.telhado]
+      || TELHADOS.telhados[Object.keys(TELHADOS.telhados)[0]];
+    const [modW] = TELHADOS.modulo;
+    for (let mx = 0; mx < b.w; mx += modW) {
+      ds(IMG['lpc-telhados'], t.x, t.y, t.w, t.h,
+        (b.x + mx) * TILE, b.y * TILE, t.w, t.h);
     }
   }
 

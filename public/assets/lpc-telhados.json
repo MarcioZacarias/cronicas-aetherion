@@ -1,0 +1,79 @@
+{
+  "tile": 32,
+  "modulo": [
+    5,
+    4
+  ],
+  "telhados": {
+    "grafite": {
+      "x": 0,
+      "y": 0,
+      "w": 160,
+      "h": 128,
+      "origem": "roofs.png (0,0)"
+    },
+    "ardosia": {
+      "x": 160,
+      "y": 0,
+      "w": 160,
+      "h": 128,
+      "origem": "roofs.png (5,0)"
+    },
+    "azul": {
+      "x": 320,
+      "y": 0,
+      "w": 160,
+      "h": 128,
+      "origem": "roofs.png (10,0)"
+    },
+    "verde": {
+      "x": 480,
+      "y": 0,
+      "w": 160,
+      "h": 128,
+      "origem": "roofs.png (15,0)"
+    },
+    "vinho": {
+      "x": 640,
+      "y": 0,
+      "w": 160,
+      "h": 128,
+      "origem": "roofs.png (20,0)"
+    },
+    "sepia": {
+      "x": 800,
+      "y": 0,
+      "w": 160,
+      "h": 128,
+      "origem": "roofs.png (25,0)"
+    },
+    "cinza": {
+      "x": 960,
+      "y": 0,
+      "w": 160,
+      "h": 128,
+      "origem": "roofs.png (30,0)"
+    },
+    "grafite2": {
+      "x": 1120,
+      "y": 0,
+      "w": 160,
+      "h": 128,
+      "origem": "roofs.png (35,0)"
+    },
+    "vinho2": {
+      "x": 1280,
+      "y": 0,
+      "w": 160,
+      "h": 128,
+      "origem": "roofs.png (40,0)"
+    },
+    "musgo": {
+      "x": 1440,
+      "y": 0,
+      "w": 160,
+      "h": 128,
+      "origem": "roofs.png (45,0)"
+    }
+  }
+}

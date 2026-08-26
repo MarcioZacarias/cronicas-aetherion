@@ -41,6 +41,9 @@ def main():
     indice = json.loads((ASSETS / 'city.json').read_text(encoding='utf-8'))['variantes']
     sets_img = carregar('lpc-sets')
     ind_sets = json.loads((ASSETS / 'lpc-sets.json').read_text(encoding='utf-8'))['conjuntos']
+    tel_img = carregar('lpc-telhados')
+    tel_meta = json.loads((ASSETS / 'lpc-telhados.json').read_text(encoding='utf-8'))
+    ind_tel, MOD_W = tel_meta['telhados'], tel_meta['modulo'][0]
     humanos = {n: carregar(n) for n in ('guard', 'princess', 'villager',
                                     'guard_a', 'guard_b', 'villager_a', 'villager_b',
                                     'villager_c', 'princess_a', 'princess_b', 'princess_c')}
@@ -169,12 +172,11 @@ def main():
             img.alpha_composite(tree.crop((0, 0, 96, 144)), (i * T - 32, j * T - 112))
         elif tipo == 'predio':
             b = a
-            linhas_telhado = b['h'] - 2
-            chave_telhado = 'telhado:' + b.get('telhado', 'vermelho')
-            for cy in range(linhas_telhado):
-                for cxi in range(b['w']):
-                    peca_set(chave_telhado, fatia9(cxi, cy, b['w'], linhas_telhado),
-                             (b['x'] - x0 + cxi) * T, (b['y'] - y0 + cy) * T)
+            t = ind_tel.get(b.get('telhado')) or ind_tel[next(iter(ind_tel))]
+            for mx in range(0, b['w'], MOD_W):
+                img.alpha_composite(
+                    tel_img.crop((t['x'], t['y'], t['x'] + t['w'], t['y'] + t['h'])),
+                    ((b['x'] - x0 + mx) * T, (b['y'] - y0) * T))
             for cxi in range(b['w']):
                 borda = cxi == 0 or cxi == b['w'] - 1
                 px = (b['x'] - x0 + cxi) * T

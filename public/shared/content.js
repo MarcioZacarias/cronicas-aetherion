@@ -203,7 +203,7 @@ export const NPCS = [
   { id: 'tomas', name: 'Irmão Tomas — Irmandade', img: 'villager_b', map: 'vale', x: 26, y: 22 },
   { id: 'aldous', name: 'Velho Aldous — Mendigo', img: 'villager_c', map: 'vale', x: 26, y: 26 },
   { id: 'nilo', name: 'Nilo — Garoto Curioso', img: 'villager_b', map: 'vale', x: 33, y: 25 },
-  { id: 'rosa', name: 'Rosa — Estalajadeira', img: 'princess', map: 'vale', x: 36, y: 46 },
+  { id: 'rosa', name: 'Rosa — Estalajadeira', img: 'princess', map: 'vale', x: 35, y: 47 },
 ];
 
 // ---------------------------------------------------------

@@ -73,11 +73,15 @@ PLANO = [
 ]
 
 # Referências para batizar um conjunto pela cor que ele REALMENTE tem.
+# Precisa cobrir os tons ESCUROS separadamente: sem eles, marrom-escuro,
+# vinho e verde-musgo caem todos em "preto" e viram preto2, preto3...
 PALETA = [
-    ('vermelho', (150, 45, 30)), ('azul', (45, 80, 170)), ('verde', (30, 95, 60)),
-    ('marrom', (130, 85, 50)), ('roxo', (85, 70, 105)), ('cinza', (105, 110, 112)),
-    ('ardosia', (78, 84, 94)), ('creme', (205, 195, 170)), ('palha', (190, 165, 120)),
-    ('branco', (225, 225, 220)), ('preto', (55, 55, 60)),
+    ('vermelho', (150, 45, 30)), ('vinho', (95, 42, 42)),
+    ('azul', (45, 80, 170)), ('verde', (30, 95, 60)), ('musgo', (55, 75, 60)),
+    ('marrom', (130, 85, 50)), ('sepia', (92, 62, 40)),
+    ('roxo', (85, 70, 105)), ('cinza', (120, 125, 128)), ('ardosia', (78, 84, 94)),
+    ('grafite', (52, 54, 62)), ('creme', (205, 195, 170)), ('palha', (190, 165, 120)),
+    ('branco', (228, 228, 224)),
 ]
 
 
@@ -126,6 +130,36 @@ def fatias_do_terreno(indice, cantos):
             if marcado == assinatura and nome not in achados:
                 achados[nome] = tid
     return achados
+
+
+# ---------------------------------------------------------
+# Telhados COMPLETOS
+#
+# Os telhados inclinados do LPC não são costuráveis: as bordas são
+# tacaniças diagonais desenhadas para um canto específico, e repeti-las
+# produz uma serra. São kits de montagem manual.
+#
+# A saída é usar peças inteiras. Em roofs.png, a linha y=0 tem dez
+# telhados completos de 5x4 — cumeeira, quatro águas e beirais —, um a
+# cada 5 colunas. Cada prédio do jogo passa a ser um múltiplo desse
+# módulo de 5, que é como uma fileira de sobrados realmente se parece.
+# ---------------------------------------------------------
+TELHADOS_FONTE = 'lpc-victorian-preview-see-readme/roofs.png'
+TELHADO_W, TELHADO_H, TELHADO_Y = 5, 4, 0
+TELHADO_XS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45]
+
+
+def importar_telhados(base, atlas_saida):
+    caminho = base / TELHADOS_FONTE
+    if not caminho.exists():
+        return []
+    folha = Image.open(caminho).convert('RGBA')
+    saida = []
+    for x in TELHADO_XS:
+        rec = folha.crop((x * T, TELHADO_Y * T,
+                          (x + TELHADO_W) * T, (TELHADO_Y + TELHADO_H) * T))
+        saida.append((nomear_por_cor(rec), rec, x))
+    return saida
 
 
 def main():
@@ -187,6 +221,31 @@ def main():
 
     destino = ASSETS / 'lpc-sets.png'
     atlas.save(destino)
+
+    # ---- telhados completos, em folha própria ----
+    telhados = importar_telhados(base, None)
+    tel_indice = {}
+    if telhados:
+        tel = Image.new('RGBA', (len(telhados) * TELHADO_W * T, TELHADO_H * T), (0, 0, 0, 0))
+        usadas = set()
+        for i, (cor, rec, xorig) in enumerate(telhados):
+            chave = cor
+            n = 2
+            while chave in usadas:
+                chave = f'{cor}{n}'; n += 1
+            usadas.add(chave)
+            tel.paste(rec, (i * TELHADO_W * T, 0))
+            tel_indice[chave] = {'x': i * TELHADO_W * T, 'y': 0,
+                                 'w': TELHADO_W * T, 'h': TELHADO_H * T,
+                                 'origem': f'roofs.png ({xorig},{TELHADO_Y})'}
+        tel.save(ASSETS / 'lpc-telhados.png')
+        (ASSETS / 'lpc-telhados.json').write_text(
+            json.dumps({'tile': T, 'modulo': [TELHADO_W, TELHADO_H],
+                        'telhados': tel_indice}, indent=2), encoding='utf-8')
+        print(f'lpc-telhados.png  {tel.width}x{tel.height}  '
+              f'{len(tel_indice)} telhados de {TELHADO_W}x{TELHADO_H}: '
+              f'{", ".join(tel_indice)}')
+
     (ASSETS / 'lpc-sets.json').write_text(
         json.dumps({'tile': T, 'ordem': FATIAS, 'conjuntos': indice}, indent=2),
         encoding='utf-8')
