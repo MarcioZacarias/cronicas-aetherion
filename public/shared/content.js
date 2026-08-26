@@ -186,7 +186,7 @@ export const NPCS = [
   // --- Vila de Lumera: cada um na porta do seu estabelecimento ---
   { id: 'toren', name: 'Toren — Ferreiro', img: 'villager_a', map: 'over', x: 8, y: 21 },
   { id: 'mira', name: 'Mira — Alquimista', img: 'princess_a', map: 'over', x: 19, y: 21 },
-  { id: 'irina', name: 'Irina — Sacerdotisa', img: 'princess_c', map: 'over', x: 8, y: 29 },
+  { id: 'irina', name: 'Irina — Sacerdotisa', img: 'princess_c', map: 'over', x: 6, y: 29 },
   { id: 'bento', name: 'Bento — Cocheiro', img: 'villager_b', map: 'over', x: 19, y: 29 },
   { id: 'cedric', name: 'Cedric — Capitão da Guarda', img: 'guard_a', map: 'over', x: 13, y: 18 },
 
@@ -197,7 +197,7 @@ export const NPCS = [
   { id: 'sela', name: 'Sela — Boticária', img: 'princess_b', map: 'vale', x: 34, y: 20 },
   { id: 'edmun', name: 'Escrivão Edmun — Prefeitura', img: 'villager_c', map: 'vale', x: 41, y: 20 },
   { id: 'brida', name: 'Brida — Taverneira', img: 'princess', map: 'vale', x: 48, y: 20 },
-  { id: 'seraf', name: 'Serafina — Sacerdotisa do Templo', img: 'princess_a', map: 'vale', x: 30, y: 12 },
+  { id: 'seraf', name: 'Serafina — Sacerdotisa do Templo', img: 'princess_a', map: 'vale', x: 33, y: 12 },
   { id: 'jorun', name: 'Jorun — Mestre das Carruagens', img: 'guard_b', map: 'vale', x: 36, y: 37 },
   { id: 'lyra', name: 'Capitã Lyra — Guarda de Ardentia', img: 'guard_a', map: 'vale', x: 30, y: 37 },
   { id: 'tomas', name: 'Irmão Tomas — Irmandade', img: 'villager_b', map: 'vale', x: 26, y: 22 },

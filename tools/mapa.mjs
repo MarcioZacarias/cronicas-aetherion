@@ -109,3 +109,18 @@ if (problemas.length) {
   process.exit(1);
 }
 console.log('\nnenhum problema encontrado.');
+
+// Um NPC parado no tile do templo impede o jogador de pisar nele e
+// registrar o renascimento — foi exatamente o que aconteceu na primeira
+// versão. Esta checagem existe para não acontecer de novo.
+{
+  const { TEMPLOS: TT } = await import('../public/shared/content.js');
+  const ruins = [];
+  for (const [id, t] of Object.entries(TT)) {
+    const ocupado = NPCS.find((n) => n.map === t.map && n.x === t.x && n.y === t.y);
+    if (ocupado) ruins.push(`templo ${id} (${t.map} ${t.x},${t.y}) está sob o NPC ${ocupado.id}`);
+    if (BLOCK.has(MAPS[t.map].tiles[t.y][t.x])) ruins.push(`templo ${id} em tile bloqueado`);
+  }
+  if (ruins.length) { console.log('\nPROBLEMA NOS TEMPLOS:'); for (const r of ruins) console.log('  -', r); process.exit(1); }
+  console.log('templos: livres e pisáveis.');
+}
