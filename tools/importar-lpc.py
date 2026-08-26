@@ -206,8 +206,16 @@ def fatias_do_terreno(indice, cantos):
 # cada 5 colunas. Cada prédio do jogo passa a ser um múltiplo desse
 # módulo de 5, que é como uma fileira de sobrados realmente se parece.
 # ---------------------------------------------------------
+# O recorte de 5x6 a partir de y=1 pega o PRÉDIO INTEIRO como o artista
+# desenhou: telhado com cumeeira e tacaniças MAIS a faixa de parede, na
+# mesma palheta. Recortes mais curtos cortam a parede; mais altos pegam
+# lixo da fileira de baixo; começar em y=0 pega lixo da de cima.
+#
+# Isso importa porque a tentativa anterior colava telhado em 3/4 sobre uma
+# fachada de elevação frontal (palheta e projeção diferentes), e o prédio
+# lia como barraca com uma parede grudada embaixo.
 TELHADOS_FONTE = 'lpc-victorian-preview-see-readme/roofs.png'
-TELHADO_W, TELHADO_H, TELHADO_Y = 5, 4, 0
+TELHADO_W, TELHADO_H, TELHADO_Y = 5, 6, 1
 TELHADO_XS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45]
 
 
@@ -255,6 +263,15 @@ PROPS = [
 # Poste e luminária ficam em REGIÕES DIFERENTES da folha: um recorte
 # contíguo de 1x2 pega duas cabeças, não um poste completo. Estes são
 # montados empilhando dois tiles distintos.
+# Portas vêm com fundo transparente: são sobreposições para assentar
+# sobre a faixa de parede que já vem no recorte do prédio.
+ABERTURAS = [
+    ('porta',  'lpc-victorian-preview-see-readme/windows-doors.png',  0, 16, 1, 2),
+    ('porta2', 'lpc-victorian-preview-see-readme/windows-doors.png',  6, 16, 1, 2),
+    ('janela', 'lpc-victorian-preview-see-readme/windows-doors.png',  4,  3, 1, 1),
+]
+
+
 PROPS_COMPOSTOS = [
     # (nome, folha, [(x,y) de baixo para cima])
     ('lampiao',  'lpc-victorian-decoration/victorian-streets.png', [(0, 7), (0, 16)]),
@@ -279,9 +296,9 @@ def importar_compostos(base):
     return itens, faltando
 
 
-def importar_props(base):
+def importar_props(base, lista=None):
     itens, faltando = [], []
-    for nome, rel, x, y, w, h in PROPS:
+    for nome, rel, x, y, w, h in (lista if lista is not None else PROPS):
         caminho = base / rel
         if not caminho.exists():
             faltando.append(f'prop/{nome} ({rel} ausente)')
@@ -394,8 +411,9 @@ def main():
     # ---- mobiliário urbano ----
     props, faltas_props = importar_props(base)
     compostos, faltas_comp = importar_compostos(base)
-    props = compostos + props
-    faltando.extend(faltas_props + faltas_comp)
+    aberturas, faltas_ab = importar_props(base, ABERTURAS)
+    props = compostos + props + aberturas
+    faltando.extend(faltas_props + faltas_comp + faltas_ab)
     if props:
         # Empacota lado a lado numa fita, alinhada ao tile.
         largura = sum(w for _, _, w, _ in props)

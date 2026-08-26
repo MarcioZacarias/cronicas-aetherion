@@ -223,20 +223,26 @@ def main():
             img.alpha_composite(tree.crop((0, 0, 96, 144)), (i * T - 32, j * T - 112))
         elif tipo == 'predio':
             b = a
+            MOD_W_ = tel_meta['modulo'][0]
             t = ind_tel.get(b.get('telhado')) or ind_tel[next(iter(ind_tel))]
-            for mx in range(0, b['w'], MOD_W):
+            for mx in range(0, b['w'], MOD_W_):
                 img.alpha_composite(
                     tel_img.crop((t['x'], t['y'], t['x'] + t['w'], t['y'] + t['h'])),
                     ((b['x'] - x0 + mx) * T, (b['y'] - y0) * T))
-            for cxi in range(b['w']):
-                borda = cxi == 0 or cxi == b['w'] - 1
-                px = (b['x'] - x0 + cxi) * T
-                nome = 'base'
-                if cxi == b['porta']:
-                    nome = 'porta'
-                elif not borda and cxi in b.get('janelas', []):
-                    nome = 'base_janela'
-                peca(b['v'], nome, px, (b['y'] - y0 + b['h'] - 2) * T)
+            parede_y = b['y'] - y0 + b['h'] - 2
+            pr = ind_props.get('porta')
+            if pr:
+                img.alpha_composite(
+                    props_img.crop((pr['x'], pr['y'], pr['x'] + pr['w'], pr['y'] + pr['h'])),
+                    ((b['x'] - x0 + b['porta']) * T, parede_y * T))
+            jn = ind_props.get('janela')
+            if jn:
+                for cxi in b.get('janelas', []):
+                    if cxi == b['porta']:
+                        continue
+                    img.alpha_composite(
+                        props_img.crop((jn['x'], jn['y'], jn['x'] + jn['w'], jn['y'] + jn['h'])),
+                        ((b['x'] - x0 + cxi) * T, (parede_y + 1) * T))
             if b.get('tipo'):
                 letreiro(b)
         elif tipo == 'prop':

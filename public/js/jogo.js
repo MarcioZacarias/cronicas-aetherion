@@ -1044,28 +1044,38 @@ function pecaSet(chave, fatia, dx, dy) {
 // a pedra, ela virava uma tarja que não combinava com nenhum dos dois. O
 // beiral do próprio telhado já faz a transição.
 function desenharPredio(b) {
-  const v = b.v;
+  // O prédio é UMA peça: o recorte de 5x6 da folha do LPC já traz o
+  // telhado e a faixa de parede na mesma palheta e na mesma projeção.
+  // A tentativa anterior colava telhado em 3/4 sobre a fachada de
+  // elevação frontal do pacote antigo — duas projeções empilhadas, e o
+  // resultado lia como barraca com uma parede grudada embaixo.
+  if (!TELHADOS) return;
+  const t = TELHADOS.telhados[b.telhado]
+    || TELHADOS.telhados[Object.keys(TELHADOS.telhados)[0]];
+  const [modW] = TELHADOS.modulo;
 
-  // O telhado é uma peça INTEIRA de 5x4, repetida por módulo. Tentar
-  // costurá-lo a partir de bordas produz uma serra: as bordas do LPC são
-  // tacaniças diagonais feitas para um canto específico.
-  if (TELHADOS) {
-    const t = TELHADOS.telhados[b.telhado]
-      || TELHADOS.telhados[Object.keys(TELHADOS.telhados)[0]];
-    const [modW] = TELHADOS.modulo;
-    for (let mx = 0; mx < b.w; mx += modW) {
-      ds(IMG['lpc-telhados'], t.x, t.y, t.w, t.h,
-        (b.x + mx) * TILE, b.y * TILE, t.w, t.h);
-    }
+  for (let mx = 0; mx < b.w; mx += modW) {
+    ds(IMG['lpc-telhados'], t.x, t.y, t.w, t.h,
+      (b.x + mx) * TILE, b.y * TILE, t.w, t.h);
   }
 
-  for (let cx = 0; cx < b.w; cx++) {
-    const borda = cx === 0 || cx === b.w - 1;
-    const px = (b.x + cx) * TILE;
-    let nomeBase = 'base';
-    if (cx === b.porta) nomeBase = 'porta';
-    else if (!borda && b.janelas.includes(cx)) nomeBase = 'base_janela';
-    peca(v, nomeBase, px, (b.y + b.h - 2) * TILE);
+  // Porta e janelas são sobreposições transparentes, assentadas sobre a
+  // faixa de parede que já veio no recorte.
+  if (PROPS) {
+    const paredeY = b.y + b.h - 2;
+    const porta = PROPS.props.porta;
+    if (porta) {
+      ds(IMG['lpc-props'], porta.x, porta.y, porta.w, porta.h,
+        (b.x + b.porta) * TILE, paredeY * TILE, porta.w, porta.h);
+    }
+    const jan = PROPS.props.janela;
+    if (jan) {
+      for (const cx of b.janelas) {
+        if (cx === b.porta) continue;
+        ds(IMG['lpc-props'], jan.x, jan.y, jan.w, jan.h,
+          (b.x + cx) * TILE, (paredeY + 1) * TILE, jan.w, jan.h);
+      }
+    }
   }
 
   if (b.tipo) desenharLetreiro(b);

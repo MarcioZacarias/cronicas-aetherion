@@ -4,101 +4,179 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Crônicas de Aetherion — MMORPG 2D no navegador</title>
-<meta name="description" content="MMORPG 2D top-down inspirado em Tibia. Crie sua conta, escolha entre quatro classes e explore Aurora e Valedorn junto com outros jogadores. Roda direto no navegador.">
+<meta name="description" content="MMORPG 2D de mundo aberto. Escolha entre Cavaleiro, Mago, Arqueiro e Sacerdote, atravesse Aurora e Valedorn e enfrente o que dorme nas Catacumbas. Joga direto no navegador.">
+<meta property="og:title" content="Crônicas de Aetherion">
+<meta property="og:description" content="MMORPG 2D de mundo aberto, direto no navegador.">
+<meta property="og:image" content="/assets/site/hero.png">
 <link rel="stylesheet" href="/css/ui.css">
+<style>
+  /* ---------- topo ---------- */
+  .capa {
+    position: relative; min-height: min(88vh, 760px);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 40px 20px 56px; overflow: hidden;
+  }
+  /* O degradê fica por baixo da arte: se a imagem faltar, o topo continua
+     apresentável em vez de virar um retângulo vazio. */
+  .capa::before {
+    content: ''; position: absolute; inset: 0; z-index: -2;
+    background:
+      radial-gradient(ellipse at 50% 20%, #1b2f5e 0%, #0b1226 55%, #06080f 100%);
+  }
+  .capa::after {
+    content: ''; position: absolute; inset: 0; z-index: -1;
+    background-image: linear-gradient(to bottom, rgba(6,8,15,.15) 0%, rgba(6,8,15,.55) 55%, #0d0b08 100%),
+                      url('/assets/site/hero.png');
+    background-size: cover; background-position: center 30%;
+  }
+  .marca-grande { width: min(78vw, 460px); margin: 0 auto 10px; display: block; filter: drop-shadow(0 8px 26px rgba(0,0,0,.75)); }
+  /* O logo veio com fundo branco; multiply o funde no fundo escuro sem
+     precisar de uma versão recortada. */
+  .marca-grande.recorta { mix-blend-mode: screen; }
+  .capa h1 { font-size: clamp(20px, 4vw, 30px); color: #eadfae; letter-spacing: 2px; text-shadow: 0 3px 18px #000; }
+  .capa .chamada { color: #cfe0ff; font-size: clamp(14px, 2.4vw, 18px); max-width: 46ch; margin: 14px auto 0; text-shadow: 0 2px 10px #000; }
+  .botoes { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 30px; }
+  .botao.grande { padding: 15px 34px; font-size: 16px; letter-spacing: .5px; }
+  .selo { margin-top: 22px; font-size: 12px; color: #9fb0cc; letter-spacing: 1px; text-shadow: 0 2px 8px #000; }
+
+  /* ---------- faixas com arte ---------- */
+  .faixa { position: relative; overflow: hidden; border-top: 1px solid #262015; border-bottom: 1px solid #262015; }
+  .faixa .arte { position: absolute; inset: 0; background-size: cover; background-position: center; z-index: -1; }
+  .faixa .veu { position: absolute; inset: 0; z-index: -1; }
+  .faixa .dentro { width: min(94vw, 960px); margin: 0 auto; padding: 72px 0; }
+  .faixa h2 { color: #f0d060; font-size: clamp(20px, 3.4vw, 28px); margin: 0 0 12px; }
+  .faixa p { color: #dfe6f2; font-size: 15px; line-height: 1.75; max-width: 52ch; text-shadow: 0 2px 8px rgba(0,0,0,.9); }
+  .faixa .caixa-texto { background: linear-gradient(90deg, rgba(8,10,18,.88) 0%, rgba(8,10,18,.6) 70%, transparent 100%); padding: 26px; border-radius: 10px; }
+  .direita .caixa-texto { background: linear-gradient(270deg, rgba(8,10,18,.88) 0%, rgba(8,10,18,.6) 70%, transparent 100%); margin-left: auto; text-align: right; }
+  .direita p { margin-left: auto; }
+
+  /* ---------- classes ---------- */
+  .classes-grade { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  .cartao-classe {
+    border: 1px solid #3a3220; border-radius: 12px; padding: 20px;
+    background: linear-gradient(180deg, rgba(30,26,20,.92), rgba(14,12,9,.92));
+  }
+  .cartao-classe .ic { font-size: 30px; display: block; margin-bottom: 8px; }
+  .cartao-classe h3 { color: #f0d060; font-size: 17px; margin-bottom: 4px; }
+  .cartao-classe .papel { color: #a08cf0; font-size: 12px; letter-spacing: .5px; margin-bottom: 8px; }
+  .cartao-classe p { color: #a99b7c; font-size: 13px; line-height: 1.6; }
+
+  .encerra { text-align: center; padding: 64px 20px; background: radial-gradient(ellipse at 50% 0%, #1b2f5e 0%, #0d0b08 70%); }
+  .encerra h2 { color: #eadfae; font-size: clamp(20px, 3.6vw, 28px); margin-bottom: 10px; }
+</style>
 </head>
 <body>
-<div class="wrap">
 
-  <header class="topo">
-    <div class="marca">CRÔNICAS DE AETHERION<span>MMORPG 2D no navegador</span></div>
-    <nav>
-      <a href="/entrar.html">Entrar</a>
-      <a class="botao primario" href="/entrar.html#criar">Criar conta</a>
-    </nav>
-  </header>
-
-  <section class="heroi">
-    <h1>Aurora não precisa de heróis.<br>Precisa de quem apareça.</h1>
-    <p class="lema">Capítulos I e II — Sombras em Aurora e O Símbolo Negro</p>
-    <p class="sub">
-      Um MMORPG 2D top-down inspirado em Tibia: click-to-move, combate por turnos de recarga,
-      monstros que perseguem, chefes que enfurecem quando feridos. Sem instalar nada, sem plugin —
-      abre no navegador do celular ou do PC e você já está dentro.
-    </p>
-    <p class="linha" style="margin-top:22px">
-      <a class="botao primario" href="/entrar.html#criar">Criar conta e jogar</a>
-      <a class="botao" href="/entrar.html">Já tenho conta</a>
-    </p>
-  </section>
-
-  <h2>Quatro classes, papéis de verdade</h2>
-  <p class="sub">
-    A escolha não é cosmética: cada classe tem curva de vida, mana e alcance própria.
-    Um grupo equilibrado derruba coisas que ninguém derruba sozinho.
+<header class="capa">
+  <img class="marca-grande recorta" src="/assets/site/logo.png" alt="Crônicas de Aetherion">
+  <p class="chamada">
+    Um mundo aberto onde ninguém espera por você. Escolha seu caminho, cruze o mar
+    até Valedorn e descubra o que a Irmandade guardou sob as catacumbas.
   </p>
-  <div class="grade g4" style="margin-top:14px">
-    <div class="recurso">
-      <h3>🛡️ Cavaleiro</h3>
+  <div class="botoes">
+    <a class="botao primario grande" href="/entrar.html#criar">Jogar agora</a>
+    <a class="botao grande" href="/entrar.html">Entrar</a>
+  </div>
+  <p class="selo">SEM DOWNLOAD · SEM PLUGIN · JOGA NO CELULAR E NO PC</p>
+</header>
+
+<section class="faixa">
+  <div class="arte" style="background-image:url('/assets/site/cidade.png')"></div>
+  <div class="dentro">
+    <div class="caixa-texto">
+      <h2>Cidades vivas</h2>
+      <p>
+        Ardentia tem muralha, avenida, praça com chafariz e um mercado que abre todo dia.
+        Armaria, botica, banco, taverna e prefeitura — cada porta com alguém atrás dela.
+        Guarde ouro no cofre da cidade, pegue a carruagem para as Minas e volte antes do
+        anoitecer.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="faixa direita">
+  <div class="arte" style="background-image:url('/assets/site/batalha.png')"></div>
+  <div class="dentro">
+    <div class="caixa-texto">
+      <h2>O que dorme lá embaixo</h2>
+      <p>
+        Gormak guarda as Minas de Aurora. O Alto Sacerdote Corvus espera no altar das
+        Catacumbas. Chefes não caem sozinhos — e a experiência é dividida pelo dano que
+        cada um causou, então ajudar compensa e roubar o último golpe não.
+      </p>
+    </div>
+  </div>
+</section>
+
+<div class="wrap">
+  <h2 style="text-align:center">Quatro classes, quatro papéis</h2>
+  <p class="sub centro" style="margin:0 auto 26px">
+    A escolha não é cosmética. Cada classe tem curva de vida, mana e alcance própria —
+    e um grupo equilibrado derruba o que ninguém derruba sozinho.
+  </p>
+  <div class="classes-grade">
+    <div class="cartao-classe">
+      <span class="ic">🛡️</span>
+      <h3>Cavaleiro</h3>
+      <div class="papel">LINHA DE FRENTE</div>
       <p>Muita vida e defesa, dano corpo a corpo constante. Segura o inimigo enquanto o grupo trabalha.</p>
     </div>
-    <div class="recurso">
-      <h3>🔮 Mago</h3>
+    <div class="cartao-classe">
+      <span class="ic">🔮</span>
+      <h3>Mago</h3>
+      <div class="papel">DANO À DISTÂNCIA</div>
       <p>O maior dano do jogo e o menor bolso de vida. Precisa de distância — e de alguém na frente.</p>
     </div>
-    <div class="recurso">
-      <h3>🏹 Arqueiro</h3>
-      <p>Ataque básico a quatro tiles de distância e a recarga mais curta. Sobrevive mantendo o espaço.</p>
+    <div class="cartao-classe">
+      <span class="ic">🏹</span>
+      <h3>Arqueiro</h3>
+      <div class="papel">PRESSÃO CONSTANTE</div>
+      <p>Ataca a quatro tiles de distância com a menor recarga. Sobrevive enquanto mantiver o espaço.</p>
     </div>
-    <div class="recurso">
-      <h3>✨ Sacerdote</h3>
+    <div class="cartao-classe">
+      <span class="ic">✨</span>
+      <h3>Sacerdote</h3>
+      <div class="papel">SUPORTE</div>
       <p>Cura a si e a todos os aliados num raio de três tiles. Decide se o grupo volta vivo.</p>
     </div>
   </div>
 
-  <h2>O que tem no mundo</h2>
-  <div class="grade g2" style="margin-top:6px">
+  <h2 style="text-align:center;margin-top:52px">O mundo</h2>
+  <div class="grade g2">
     <div class="recurso">
-      <h3>Dois continentes, quatro mapas</h3>
-      <p>A Ilha de Aurora e a vila de Lumera, as Minas com o chefe Gormak, a travessia de navio
-         para Valedorn, a capital murada de Ardentia, a Floresta de Elden, o cemitério e as
-         Catacumbas onde espera o Alto Sacerdote Corvus.</p>
+      <h3>Ilha de Aurora</h3>
+      <p>A vila de Lumera, a floresta, o pântano e as Minas onde alguma coisa corrompeu os mineiros.</p>
     </div>
     <div class="recurso">
-      <h3>Jogadores de verdade ao seu lado</h3>
-      <p>Você vê quem está no mesmo mapa se mover, lutar e conversar em tempo real. O XP de um
-         monstro é dividido conforme o dano de cada um — ajudar compensa, roubar o último golpe não.</p>
+      <h3>Valedorn</h3>
+      <p>Travessia de navio até a capital murada de Ardentia, a Floresta de Elden e o cemitério.</p>
     </div>
     <div class="recurso">
-      <h3>Progresso que fica salvo</h3>
-      <p>Nível, ouro, mochila, equipamento e onde você parou ficam no servidor. Fecha o navegador,
-         volta amanhã do celular e continua exatamente de onde saiu.</p>
+      <h3>Catacumbas</h3>
+      <p>Sob a capela do cemitério, criptas escuras onde a Irmandade da Nova Aurora se reúne.</p>
     </div>
     <div class="recurso">
-      <h3>Feito para telas pequenas</h3>
-      <p>Toque no chão para caminhar, no monstro para atacar, no NPC para conversar. Direcional
-         e botões de ação na tela; teclado e WASD funcionam igual no PC.</p>
+      <h3>Progresso que fica</h3>
+      <p>Nível, ouro, mochila e onde você parou ficam no servidor. Fecha aqui, abre no celular, continua.</p>
     </div>
   </div>
-
-  <h2>Começar leva um minuto</h2>
-  <ol class="passos">
-    <li>Crie uma conta com usuário e senha — sem e-mail, sem confirmação.</li>
-    <li>Escolha o nome do personagem e uma das quatro classes.</li>
-    <li>Você desembarca em Lumera. Fale com os moradores; eles contam o resto.</li>
-  </ol>
-  <p class="linha" style="margin-top:18px">
-    <a class="botao primario" href="/entrar.html#criar">Criar conta</a>
-    <a class="botao" href="/classico">Ver a versão single-player original</a>
-  </p>
-
-  <footer class="rodape">
-    <p><strong>Arte:</strong> Liberated Pixel Cup (LPC) Base Assets — Lanea Zimmerman (Sharm) e outros autores,
-       sob CC-BY-SA 3.0 / GPL 3.0 / OGA-BY 3.0. A atribuição completa está em
-       <a href="/CREDITS-LPC.txt">CREDITS-LPC.txt</a>.</p>
-    <p><strong>Código:</strong> MIT. Este é um protótipo em desenvolvimento — espere arestas.</p>
-  </footer>
-
 </div>
+
+<section class="encerra">
+  <h2>Aurora não precisa de heróis.<br>Precisa de quem apareça.</h2>
+  <p class="sub centro" style="margin:0 auto 24px">Criar conta leva um minuto. Sem e-mail, sem confirmação.</p>
+  <a class="botao primario grande" href="/entrar.html#criar">Criar conta e jogar</a>
+</section>
+
+<div class="wrap">
+  <footer class="rodape">
+    <p><strong>Arte do mundo:</strong> Liberated Pixel Cup (LPC) e remixes publicados no OpenGameArt,
+       por Lanea Zimmerman (Sharm), bluecarrot16, William Thompson, Hyptosis e outros autores,
+       sob CC-BY-SA. A atribuição completa está em <a href="/CREDITS-LPC.txt">CREDITS-LPC.txt</a>.</p>
+    <p><strong>Código:</strong> MIT.</p>
+  </footer>
+</div>
+
 </body>
 </html>

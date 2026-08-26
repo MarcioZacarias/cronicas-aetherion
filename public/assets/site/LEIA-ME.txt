@@ -1,0 +1,13 @@
+Artes do site (landing page).
+
+Salve aqui os quatro arquivos com EXATAMENTE estes nomes:
+
+  logo.png      — o brasão "Crônicas de Aetherion" (fundo transparente
+                  de preferência; o PNG com fundo branco também serve,
+                  a página o exibe sobre fundo escuro)
+  hero.png      — os três heróis diante da cidadela (usada no topo)
+  cidade.png    — a praça de mercado com as bancas e a catedral
+  batalha.png   — o confronto com o dragão nas ruínas
+
+A página funciona sem eles: cada bloco tem um fundo em degradê de
+reserva, então nada quebra enquanto os arquivos não estiverem aqui.
