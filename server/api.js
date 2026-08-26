@@ -9,7 +9,7 @@ import {
   validateUsername, validatePassword, validateNickname,
   SESSION_COOKIE, SESSION_MAX_AGE,
 } from './auth.js';
-import { CLASSES, CLASS_IDS, baseStats } from '../public/shared/content.js';
+import { CLASSES, CLASS_IDS, ITEMS, baseStats } from '../public/shared/content.js';
 
 const MAX_CHARACTERS = 4;
 const MAX_BODY = 8 * 1024;
@@ -262,7 +262,17 @@ async function createCharacter(req, res) {
   const cls = CLASSES[classId];
   const stats = baseStats(classId, 1);
   const equipment = { weapon: cls.start.weapon, shield: null, armor: cls.start.armor, ring: null };
-  const inventory = (cls.start.extra || []).map((id) => ({ id, qty: 1 }));
+
+  // Itens empilháveis têm que nascer empilhados: duas entradas de 1 poção
+  // ocupariam dois espaços da mochila e apareceriam como dois ícones.
+  const inventory = [];
+  for (const id of cls.start.extra || []) {
+    const it = ITEMS[id];
+    if (!it) continue;
+    const pilha = it.stack && inventory.find((s) => s.id === id);
+    if (pilha) pilha.qty += 1;
+    else inventory.push({ id, qty: 1 });
+  }
 
   try {
     const { rows } = await query(
