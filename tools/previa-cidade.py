@@ -225,9 +225,14 @@ def main():
             linhas = b['h'] - 2
             cumeeira = max(0, (linhas - 1) // 2)
             cor = ind_tel.get(b.get('telhado')) or ind_tel['telha']
+            sombra = Image.new('RGBA', (b['w'] * T + 6, 12), (0, 0, 0, 72))
+            img.alpha_composite(sombra, ((b['x'] - x0) * T + 6,
+                                         (b['y'] - y0 + b['h']) * T - 10))
+            larg = b['w'] + 2
             for cy in range(linhas):
-                for cxi in range(b['w']):
-                    esq, dire = cxi == 0, cxi == b['w'] - 1
+                for cxj in range(larg):
+                    cxi = cxj - 1
+                    esq, dire = cxj == 0, cxj == larg - 1
                     baixo = cy == linhas - 1
                     if baixo and esq: nome = 'canto_esq'
                     elif baixo and dire: nome = 'canto_dir'

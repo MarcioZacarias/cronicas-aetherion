@@ -1052,11 +1052,24 @@ function desenharPredio(b) {
   const linhas = b.h - 2;
   const cumeeira = Math.max(0, Math.floor((linhas - 1) / 2));
 
+  // Sombra projetada no chão, deslocada para baixo e para a direita. Sem
+  // ela o prédio não tem volume: fica um retângulo de textura colado no
+  // calçamento, que era exatamente a queixa.
+  ctx.fillStyle = 'rgba(0,0,0,.28)';
+  ctx.fillRect(
+    (b.x * TILE + 6 - cam.x) * ZOOM,
+    ((b.y + b.h) * TILE - 10 - cam.y) * ZOOM,
+    (b.w * TILE + 6) * ZOOM, 12 * ZOOM);
+
   if (TELHADOS) {
     const cor = TELHADOS.cores[b.telhado] || TELHADOS.cores.telha;
+    // O telhado AVANÇA um tile para cada lado da parede. É esse beiral que
+    // dá silhueta; alinhado com a parede, o prédio vira um bloco chapado.
+    const larg = b.w + 2;
     for (let cy = 0; cy < linhas; cy++) {
-      for (let cx = 0; cx < b.w; cx++) {
-        const esq = cx === 0, dir = cx === b.w - 1, baixo = cy === linhas - 1;
+      for (let cxi = 0; cxi < larg; cxi++) {
+        const cx = cxi - 1;
+        const esq = cxi === 0, dir = cxi === larg - 1, baixo = cy === linhas - 1;
         let nome;
         if (baixo && esq) nome = 'canto_esq';
         else if (baixo && dir) nome = 'canto_dir';

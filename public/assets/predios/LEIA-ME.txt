@@ -1,0 +1,7 @@
+Prédios montados no Tiled vão aqui.
+
+Formato do nome (o tamanho em tiles faz parte dele):
+    <nome>-<largura>x<altura>.png
+Ex.: casa-vermelha-6x5.png
+
+Fundo transparente. Instruções completas em tiled/COMO-MONTAR.md
