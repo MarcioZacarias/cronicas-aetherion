@@ -91,6 +91,16 @@ const SPRITES = ['soldier', 'guard', 'princess', 'villager', 'slime', 'bat', 'sn
   'princess_a', 'princess_b', 'princess_c', 'lpc-sets', 'casas', 'lpc-props', 'castelo-mini'];
 const IMG = {};
 
+// Versão dos assets, embutida na query de TODAS as URLs de /assets/.
+// Mudou um atlas ou índice gerado (casas.png, casas.json, lpc-sets...),
+// bumpe aqui: o navegador trata como URL nova e ignora a cópia guardada.
+// Necessário porque já houve cache de 30 dias no nginx — e o no-cache de
+// hoje não expulsa o que os navegadores gravaram naquela época: sem isto,
+// o jogador vê o traçado novo com recortes de um atlas velho (casas em
+// pedaços), até o cache antigo expirar sozinho.
+const ASSET_V = 2;
+const asset = (caminho) => `/assets/${caminho}?v=${ASSET_V}`;
+
 // Fundos dos mapas pintados (castelo, trono, floresta): a imagem inteira
 // é o cenário, carregada uma vez e desenhada em um único drawImage.
 const FUNDOS = {};
@@ -109,18 +119,18 @@ function carregarSprites() {
     im.onload = () => resolve();
     // Um sprite que falha não pode travar o jogo inteiro; ele só não desenha.
     im.onerror = () => { console.warn('sprite ausente:', nome); resolve(); };
-    im.src = `/assets/${nome}.png`;
+    im.src = asset(`${nome}.png`);
     IMG[nome] = im;
   }));
-  const indice = fetch('/assets/city.json')
+  const indice = fetch(asset('city.json'))
     .then((r) => r.json())
     .then((j) => { CITY = j; })
     .catch(() => { console.warn('city.json ausente: prédios não serão desenhados'); });
-  const telhados = fetch('/assets/lpc-sets.json')
+  const telhados = fetch(asset('lpc-sets.json'))
     .then((r) => r.json())
     .then((j) => { SETS = j; })
     .catch(() => { console.warn('lpc-sets.json ausente: telhados e calçamento não serão desenhados'); });
-  const catTelhados = fetch('/assets/casas.json')
+  const catTelhados = fetch(asset('casas.json'))
     .then((r) => r.json())
     .then((j) => { TELHADOS = j; })
     .catch(() => { console.warn('casas.json ausente: prédios não serão desenhados'); });
@@ -130,10 +140,10 @@ function carregarSprites() {
       const im = new Image();
       im.onload = () => resolve();
       im.onerror = () => { console.warn('fundo ausente:', m.fundo); resolve(); };
-      im.src = `/assets/mapas/${m.fundo}.png`;
+      im.src = asset(`mapas/${m.fundo}.png`);
       FUNDOS[m.fundo] = im;
     }));
-  const catProps = fetch('/assets/lpc-props.json')
+  const catProps = fetch(asset('lpc-props.json'))
     .then((r) => r.json())
     .then((j) => { PROPS = j; })
     .catch(() => { console.warn('lpc-props.json ausente: mobiliário volta ao desenho procedural'); });
