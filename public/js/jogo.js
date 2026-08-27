@@ -88,7 +88,7 @@ const SPRITES = ['soldier', 'guard', 'princess', 'villager', 'slime', 'bat', 'sn
   // Variantes vestidas geradas por tools/vestir-npcs.py — o pacote LPC
   // incluído traz só o corpo, sem as camadas de cabelo e roupa.
   'villager_a', 'villager_b', 'villager_c', 'guard_a', 'guard_b', 'soldier_a',
-  'princess_a', 'princess_b', 'princess_c', 'lpc-sets', 'casas', 'lpc-props'];
+  'princess_a', 'princess_b', 'princess_c', 'lpc-sets', 'casas', 'lpc-props', 'castelo-mini'];
 const IMG = {};
 
 // Fundos dos mapas pintados (castelo, trono, floresta): a imagem inteira
@@ -149,6 +149,10 @@ const ents = new Map();        // id -> entidade interpolada
 let dest = null;               // marcador do click-to-move
 let alvo = null;               // id do monstro atacado
 let recargaMagia = 0;          // espelho local do cooldown que o servidor informa
+
+// Espiar o mapa: segurando o botão DIREITO e arrastando, a câmera desloca
+// do jogador; soltar traz de volta. Só visual — o servidor nem fica sabendo.
+const espiar = { ativo: false, x: 0, y: 0, ux: 0, uy: 0 };
 let floats = [], effects = [], bolhas = new Map();
 const cam = { x: 0, y: 0 };
 let waterFrame = 0, waterT = 0, pulse = 0;
@@ -454,9 +458,19 @@ function indiceChaoPredio() {
   return chaoPredio;
 }
 
+canvas.addEventListener('contextmenu', (ev) => ev.preventDefault());
+
 canvas.addEventListener('pointerdown', (ev) => {
+  if (ev.button === 2) {
+    espiar.ativo = true;
+    espiar.ux = ev.clientX; espiar.uy = ev.clientY;
+    return;
+  }
+  if (ev.button !== 0) return;
   const me = meuEnt();
   if (!me) return;
+  // Um clique esquerdo enquanto se espiava: primeiro volta a câmera.
+  if (espiar.x || espiar.y) { espiar.x = 0; espiar.y = 0; return; }
   const tx = Math.floor((cam.x + ev.clientX / ZOOM) / TILE);
   const ty = Math.floor((cam.y + ev.clientY / ZOOM) / TILE);
   const M = MAPS[mapaAtual];
@@ -579,6 +593,16 @@ function abrirViagem(npc) {
   $('viagemouro').textContent = eu ? `Seu ouro: ${eu.gold}` : '';
   $('viagem').classList.add('open');
 }
+
+canvas.addEventListener('pointermove', (ev) => {
+  if (!espiar.ativo) return;
+  espiar.x += (espiar.ux - ev.clientX) / ZOOM;
+  espiar.y += (espiar.uy - ev.clientY) / ZOOM;
+  espiar.ux = ev.clientX; espiar.uy = ev.clientY;
+});
+addEventListener('pointerup', (ev) => {
+  if (ev.button === 2) { espiar.ativo = false; espiar.x = 0; espiar.y = 0; }
+});
 
 // direcional
 const segurando = { up: false, down: false, left: false, right: false };
@@ -726,10 +750,11 @@ function nomeRegiao() {
     if (x >= 20 && y <= 17) return 'Campos de Valedorn';
     return 'Valedorn';
   }
-  if (x >= 6 && x <= 22 && y >= 16 && y <= 27) return 'Vila de Lumera';
-  if (x >= 26 && y >= 20) return 'Pântano de Aurora';
-  if (y <= 8 && x >= 14 && x <= 23) return 'Entrada das Minas';
-  if (x <= 15 && y <= 16) return 'Floresta de Aurora';
+  if (y <= 14 && x >= 10 && x <= 29) return 'Castelo de Aurora';
+  if (x >= 4 && x <= 24 && y >= 25 && y <= 44) return 'Vila de Lumera';
+  if (x >= 26 && y >= 35) return 'Pântano de Aurora';
+  if (y <= 23 && x >= 14 && x <= 23) return 'Entrada das Minas';
+  if (x <= 15 && y <= 31) return 'Floresta de Aurora';
   return 'Ilha de Aurora';
 }
 
@@ -776,8 +801,8 @@ function render(dt) {
   const vw = canvas.width / ZOOM, vh = canvas.height / ZOOM;
   const foco = me || { px: M.w * TILE / 2, py: M.h * TILE / 2 };
 
-  cam.x = Math.max(0, Math.min(M.w * TILE - vw, foco.px + 16 - vw / 2));
-  cam.y = Math.max(0, Math.min(M.h * TILE - vh, foco.py + 16 - vh / 2));
+  cam.x = Math.max(0, Math.min(M.w * TILE - vw, foco.px + 16 + espiar.x - vw / 2));
+  cam.y = Math.max(0, Math.min(M.h * TILE - vh, foco.py + 16 + espiar.y - vh / 2));
   if (M.w * TILE < vw) cam.x = (M.w * TILE - vw) / 2;
   if (M.h * TILE < vh) cam.y = (M.h * TILE - vh) / 2;
 
@@ -908,6 +933,17 @@ function render(dt) {
         dr.push({ y: y * TILE, f: () => ds(IMG.tree, 0, 0, 96, 144, x * TILE - 32, y * TILE - 112) });
       }
     }
+    // Cenários: imagens grandes coladas no mapa (o castelo na cidade).
+    for (const c of M.cenarios || []) {
+      if (c.x > vx1 || c.x + c.w < vx0 || c.y > vy1 || c.y + c.h < vy0) continue;
+      dr.push({ y: (c.y + c.h) * TILE, f: () => {
+        const img = IMG[c.img];
+        if (img && img.complete && img.naturalWidth) {
+          ds(img, 0, 0, img.naturalWidth, img.naturalHeight, c.x * TILE, c.y * TILE);
+        }
+      } });
+    }
+
     // Prédios e mobiliário entram na mesma lista ordenada por Y, para quem
     // caminha ao sul de uma fachada aparecer na frente dela.
     for (const b of M.buildings || []) {

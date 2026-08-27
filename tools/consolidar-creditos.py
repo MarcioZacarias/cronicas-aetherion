@@ -55,7 +55,7 @@ arquivos vierem de uma submissão que exija atribuição nominal, o nome do
 autor precisa entrar aqui antes de qualquer distribuição pública."""),
 
     ('Castelo de Aurora e Floresta Profunda',
-     'Mapas pintados (public/assets/mapas/): castelo.png, trono.png, floresta.png',
+     'Mapas pintados (public/assets/mapas/): castelo.png, trono.png, floresta.png, floresta2.png',
      """Fornecidos pelo autor do projeto como livres (pasta Downloads/cronicas).
 
 PENDENTE: origem e autoria exatas não confirmadas. Se vierem de submissão

@@ -247,7 +247,7 @@ autor precisa entrar aqui antes de qualquer distribuição pública.
 
 ==============================================================================
 ORIGEM: Castelo de Aurora e Floresta Profunda
-USADO EM: Mapas pintados (public/assets/mapas/): castelo.png, trono.png, floresta.png
+USADO EM: Mapas pintados (public/assets/mapas/): castelo.png, trono.png, floresta.png, floresta2.png
 ==============================================================================
 
 Fornecidos pelo autor do projeto como livres (pasta Downloads/cronicas).

@@ -168,6 +168,8 @@ def main():
             if t == 3:
                 fila.append(((y0 + j) * T, ('arvore', i, j)))
 
+    for c in d.get('cenarios', []):
+        fila.append((((c['y'] + c['h']) * T), ('cenario', c, None)))
     for b in d['buildings']:
         fila.append(((b['y'] + b['h']) * T, ('predio', b, None)))
     for p in d['props']:
@@ -232,6 +234,10 @@ def main():
                     ((b['x'] - x0) * T, (b['y'] - y0) * T))
             if b.get('tipo'):
                 letreiro(b)
+        elif tipo == 'cenario':
+            c = a
+            im2 = carregar(c['img'])
+            img.alpha_composite(im2, ((c['x'] - x0) * T, (c['y'] - y0) * T))
         elif tipo == 'prop':
             p = a
             px, py = (p['x'] - x0) * T, (p['y'] - y0) * T

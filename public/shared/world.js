@@ -90,16 +90,15 @@ export const CASAS = {
 
 // Cada estabelecimento ganha um porte próprio — o solar é o maior, então
 // vai para banco e templo; o chalé, com frontão, para as lojas.
-// Decisão de direção de arte: TODAS as construções usam a mesma casa — a
-// estalagem de telhado azul (oga_blueroofinn, 9x8). Um único modelo de
-// prédio deixa a cidade coesa; misturar traços diferentes na mesma rua
-// era o que dava cara de colagem.
-export const CASAS_COM_FACHADA = ['oga_blueroofinn'];
+// Direção de arte: TODAS as construções usam a casa de referência
+// (house1, 9x7) — o traço mais detalhado do acervo. As variantes b/c são
+// a MESMA casa com detalhes diferentes (canteiro, poço), então mantêm a
+// unidade sem clonar pixel a pixel.
+export const CASAS_COM_FACHADA = ['house1', 'house1b', 'house1c'];
 export const CASA_POR_TIPO = {
-  templo: 'oga_blueroofinn', banco: 'oga_blueroofinn',
-  prefeitura: 'oga_blueroofinn', biblioteca: 'oga_blueroofinn',
-  armaria: 'oga_blueroofinn', botica: 'oga_blueroofinn',
-  taverna: 'oga_blueroofinn', estacao: 'oga_blueroofinn',
+  templo: 'house1c', banco: 'house1', prefeitura: 'house1',
+  biblioteca: 'house1b', armaria: 'house1', botica: 'house1b',
+  taverna: 'house1b', estacao: 'house1',
 };
 
 // Cada tipo de estabelecimento tem telhado próprio: dá para achar o banco
@@ -371,8 +370,12 @@ export function buildWorld() {
       [16, 21, 'estacao', 'Estalagem do Corvo'],
     ];
     for (const [bx, by, tipo, nome] of SERVICOS_LUMERA) {
-      reservar(m, bx, by, bx + 8, by + 7);
-      predio(m, bx, by, 9, 8, null, { emReserva: true, tipo, nome });
+      // Ancorado pela BASE (by+7): a altura vem da casa escolhida, e um
+      // lote pensado para 8 de altura receberia uma casa de 7 flutuando
+      // uma linha acima da rua se fosse ancorada pelo topo.
+      const [cw, ch] = CASAS[CASA_POR_TIPO[tipo]];
+      reservar(m, bx, by, bx + cw - 1, by + 7);
+      predio(m, bx, by + 8 - ch, cw, ch, null, { emReserva: true, tipo, nome });
     }
 
     // Props de 2 tiles (banca) precisam de folga: eles ocupam 1 tile de
@@ -386,12 +389,6 @@ export function buildWorld() {
     objeto(m, 'lampiao', 23, 19); objeto(m, 'barril', 24, 19);
 
     T[28][4] = 4; T[4][35] = 4;
-    // Estrada do castelo: da rua principal para leste e depois norte, até
-    // a borda do mapa. Sobrescreve o que estiver no caminho (inclusive a
-    // árvore fixa em 25,19) — estrada passa por cima de mato.
-    for (let x = 25; x <= 31; x++) { T[19][x] = 1; T[20][x] = 1; }
-    for (let y = 3; y <= 19; y++) { T[y][30] = 1; T[y][31] = 1; }
-    T[4][29] = 16; // placa: "Castelo de Aurora"
 
     // Trilha da floresta: sai da beira oeste da vila.
     T[12][3] = 1; T[13][3] = 1;
@@ -399,7 +396,51 @@ export function buildWorld() {
     m.holeAnchor = { x: 17, y: 3 };
     m.boat = { x: 14, y: 30 };
     m.name = 'Ilha de Aurora';
-    MAPS.over = m;
+
+    // ===== Transplante: o castelo entra DENTRO do mapa =====
+    // O mapa cresce 15 linhas no topo e todo o conteúdo desce 15. É um
+    // blit, não uma reescrita: os literais do builder acima continuam
+    // valendo, e só os pontos em content.js precisam do +15. Nada aqui
+    // consome o rng, então os outros mapas não mudam.
+    const DY = 15;
+    const g = { w: 40, h: 32 + DY, tiles: [], deco: [], buildings: [], props: [], res: [] };
+    for (let y = 0; y < g.h; y++) {
+      g.tiles[y] = []; g.deco[y] = [];
+      for (let x = 0; x < 40; x++) {
+        if (y >= DY) { g.tiles[y][x] = m.tiles[y - DY][x]; g.deco[y][x] = m.deco[y - DY][x]; }
+        else { g.tiles[y][x] = 0; g.deco[y][x] = (x * 7 + y * 13) % 3; }
+      }
+    }
+    g.buildings = m.buildings.map((b) => ({ ...b, y: b.y + DY }));
+    g.props = m.props.map((p) => ({ ...p, y: p.y + DY }));
+    g.holeAnchor = { x: m.holeAnchor.x, y: m.holeAnchor.y + DY };
+    g.boat = { x: m.boat.x, y: m.boat.y + DY };
+    g.name = m.name;
+
+    // Costura do transplante: a antiga borda-norte da ilha (água + areia)
+    // ficou atravessando o MEIO do mapa como um rio — o castelo parecia
+    // estar em outra ilha. Ela vira campo, e a zona nova ganha as margens
+    // laterais de água para a ilha continuar fechada.
+    for (let y = 0; y < DY; y++) {
+      g.tiles[y][0] = 2; g.tiles[y][1] = 2; g.tiles[y][38] = 2; g.tiles[y][39] = 2;
+      if (g.tiles[y][2] === 0) g.tiles[y][2] = 5;
+      if (g.tiles[y][37] === 0) g.tiles[y][37] = 5;
+    }
+    for (let y = DY; y < DY + 3; y++) for (let x = 3; x <= 36; x++) {
+      if (g.tiles[y][x] === 2 || g.tiles[y][x] === 5) g.tiles[y][x] = 0;
+    }
+
+    // O castelo (meia escala, 20x15, recortado do gramado) ocupa o topo,
+    // visível da cidade. O portão leva direto à Sala do Trono.
+    g.cenarios = [{ img: 'castelo-mini', x: 10, y: 0, w: 20, h: 15 }];
+    for (let y = 0; y <= 13; y++) for (let x = 11; x <= 28; x++) g.tiles[y][x] = 6;
+    for (let y = 12; y <= 13; y++) for (let x = 19; x <= 20; x++) g.tiles[y][x] = 0;
+    for (let x = 17; x <= 23; x++) g.tiles[13][x] = 0;   // calçamento do portão
+    // Estrada do portão até a rua do porto da vila.
+    for (let y = 15; y <= 23; y++) { g.tiles[y][20] = 1; g.tiles[y][21] = 1; }
+    for (let x = 15; x <= 21; x++) g.tiles[24][x] = 1;
+
+    MAPS.over = g;
   }
 
   // ---------- Valedorn ----------
@@ -457,8 +498,9 @@ export function buildWorld() {
       [42, 36, 'prefeitura', 'Prefeitura de Ardentia'],
     ];
     for (const [bx, base, tipo, nome] of COMERCIO) {
-      reservar(m, bx, base - 7, bx + 8, base);
-      predio(m, bx, base - 7, 9, 8, null, { emReserva: true, tipo, nome });
+      const [cw, ch] = CASAS[CASA_POR_TIPO[tipo]];
+      reservar(m, bx, base - 7, bx + cw - 1, base);
+      predio(m, bx, base - ch + 1, cw, ch, null, { emReserva: true, tipo, nome });
       // Lampião só na fileira norte: na sul a frente é o corredor de um
       // tile junto à muralha, e mobiliário ali ilharia os NPCs.
       if (base === 19) objeto(m, 'lampiao', bx - 1, base + 1);
@@ -494,7 +536,7 @@ export function buildWorld() {
     preencher(m, 27, 53, 40, 54, 1);
     // Taverna do Corvo, à beira da estrada do porto (não coube um
     // terceiro lote de 9 dentro do bairro sul).
-    predio(m, 33, 41, 9, 8, null, { tipo: 'taverna', nome: 'Taverna do Corvo' });
+    predio(m, 33, 42, 9, 7, null, { tipo: 'taverna', nome: 'Taverna do Corvo' });
     objeto(m, 'lampiao', 32, 45);
     // Estrada do portão norte para os campos.
     preencher(m, 29, 2, 30, MY0 - 1, 1);
@@ -519,7 +561,7 @@ export function buildWorld() {
     // Capela do cemitério. A casa de 9x8 ancorada em y=37 deixa a porta
     // em y=44 e o portal das catacumbas logo à frente, em (17,45) — na
     // posição antiga (14,40) o prédio maior engoliria o portal.
-    predio(m, 12, 37, 9, 8, null, {});
+    predio(m, 12, 38, 9, 7, null, { casa: 'house1c' });
     T[45][17] = 12; // portal para as catacumbas
     preencher(m, 16, 45, 18, 45, 1);
     preencher(m, 17, 46, 17, 50, 1);
@@ -591,16 +633,8 @@ export function buildWorld() {
     }
   };
 
-  // ---------- Castelo de Aurora (exterior) ----------
-  {
-    const m = mapaPintado('Castelo de Aurora', 'castelo', 40, 30, 0);
-    // A face da muralha desce até a linha 28 (medido no overlay de
-    // colisão — bloquear só até a 26 deixava andar por cima da parede).
-    bloquear(m, 3, 0, 36, 28);
-    liberar(m, 18, 24, 21, 28);     // arco do portão, até o pátio
-    liberar(m, 14, 27, 27, 28);     // calçamento diante do portão
-    MAPS.castelo = m;
-  }
+  // O exterior do castelo deixou de ser mapa próprio: o castelo agora é
+  // cenário DENTRO do over (meia escala), e o portão leva direto ao trono.
 
   // ---------- Sala do Trono (interior) ----------
   {
@@ -631,7 +665,32 @@ export function buildWorld() {
     bloquear(m, 0, 42, 23, 49);     // mata sudoeste
     bloquear(m, 26, 38, 49, 49);    // mata sudeste
     liberar(m, 24, 36, 25, 49);     // trilha de saída ao sul
+    // Trilha ao norte, para o bosque: passa no corredor entre o tronco da
+    // árvore gigante (x<=11) e a boca da caverna (x>=13) — em x=15 ela
+    // morria DENTRO do bloqueio da caverna e virava um beco.
+    liberar(m, 12, 0, 12, 19);
     MAPS.floresta = m;
+  }
+
+  // ---------- Bosque Encantado (floresta_2) ----------
+  // A parte funda da mata: pedras rúnicas, árvores roxas e os espíritos
+  // mais fortes. Entra-se pela trilha norte da Floresta Profunda.
+  {
+    const m = mapaPintado('Bosque Encantado', 'floresta2', 50, 50, 0);
+    bloquear(m, 0, 0, 49, 1);       // orla norte
+    bloquear(m, 0, 0, 9, 8);        // árvores a noroeste
+    bloquear(m, 27, 2, 40, 13);     // toco gigante e mata nordeste
+    bloquear(m, 41, 0, 49, 12);     // canto nordeste
+    bloquear(m, 11, 13, 29, 39);    // a árvore colossal do centro
+    bloquear(m, 0, 9, 1, 49);       // orla oeste
+    bloquear(m, 4, 16, 7, 20);      // pedra rúnica do oeste
+    bloquear(m, 0, 32, 9, 49);      // árvores roxas do sudoeste
+    bloquear(m, 33, 22, 37, 26);    // pedras rúnicas do leste
+    bloquear(m, 40, 28, 49, 49);    // árvores roxas do sudeste
+    bloquear(m, 44, 13, 49, 27);    // orla leste
+    bloquear(m, 10, 48, 49, 49);    // orla sul
+    liberar(m, 25, 40, 26, 49);     // trilha de volta, ao sul
+    MAPS.floresta2 = m;
   }
 
   // A grade de reserva era andaime da construção: não interessa a quem joga.

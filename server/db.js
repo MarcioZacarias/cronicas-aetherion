@@ -73,6 +73,10 @@ ALTER TABLE accounts ADD COLUMN IF NOT EXISTS bank_items JSONB NOT NULL DEFAULT 
 
 -- Templo registrado pelo personagem; nulo = usa o templo da região.
 ALTER TABLE characters ADD COLUMN IF NOT EXISTS home JSONB;
+
+-- O mapa da ilha cresceu 15 linhas no topo (zona do castelo): o ponto de
+-- nascimento padrão desce junto. Idempotente.
+ALTER TABLE characters ALTER COLUMN ty SET DEFAULT 42;
 `;
 
 export async function migrate() {

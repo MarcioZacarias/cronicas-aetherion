@@ -146,12 +146,12 @@ export const MTYPES = {
 // Tabela de nascimento: [tipo, mapa, x, y]
 export const SPAWNS = [
   // Ilha de Aurora — arredores de Lumera
-  ['slime', 'over', 7, 6], ['slime', 'over', 10, 9], ['slime', 'over', 5, 7], ['slime', 'over', 10, 6],
-  ['bee', 'over', 24, 8], ['bee', 'over', 31, 13], ['bee', 'over', 27, 17],
+  ['slime', 'over', 7, 21], ['slime', 'over', 10, 24], ['slime', 'over', 5, 22], ['slime', 'over', 10, 21],
+  ['bee', 'over', 24, 23], ['bee', 'over', 31, 28], ['bee', 'over', 27, 32],
   // A cobra do pântano nascia em (30,23), que o gerador transforma em água:
   // ela ficava presa, sem poder se mover nem ser alcançada.
-  ['snake', 'over', 31, 22], ['snake', 'over', 33, 26], ['snake', 'over', 28, 25],
-  ['bat', 'over', 14, 4], ['bat', 'over', 22, 5],
+  ['snake', 'over', 31, 37], ['snake', 'over', 33, 41], ['snake', 'over', 28, 40],
+  ['bat', 'over', 14, 19], ['bat', 'over', 22, 20],
 
   // Minas de Aurora
   ['sworm', 'mine', 8, 14], ['sworm', 'mine', 17, 13], ['sworm', 'mine', 24, 14], ['sworm', 'mine', 13, 20],
@@ -173,10 +173,15 @@ export const SPAWNS = [
   ['spectre', 'vale', 14, 49], ['spectre', 'vale', 19, 56], ['spectre', 'vale', 9, 50],
 
   // Floresta Profunda
-  ['slime', 'floresta', 12, 24], ['slime', 'floresta', 15, 30], ['slime', 'floresta', 25, 28],
+  ['slime', 'floresta', 17, 27], ['slime', 'floresta', 15, 30], ['slime', 'floresta', 25, 28],
   ['snake', 'floresta', 10, 36], ['snake', 'floresta', 30, 30],
   ['bee', 'floresta', 18, 22], ['bee', 'floresta', 35, 28],
   ['flower', 'floresta', 38, 32], ['flower', 'floresta', 6, 28],
+
+  // Bosque Encantado — os espíritos fortes da mata funda
+  ['ghost', 'floresta2', 5, 26], ['ghost', 'floresta2', 38, 20],
+  ['spectre', 'floresta2', 15, 44], ['spectre', 'floresta2', 33, 32],
+  ['flower', 'floresta2', 20, 43], ['flower', 'floresta2', 31, 17],
 
   // Catacumbas
   ['cultist', 'cata', 10, 9], ['cultist', 'cata', 18, 10], ['cultist', 'cata', 20, 9], ['cultist', 'cata', 23, 8], ['cultist', 'cata', 25, 10],
@@ -190,11 +195,11 @@ export const SPAWNS = [
 // ---------------------------------------------------------
 export const NPCS = [
   // --- Vila de Lumera: cada um na porta do seu estabelecimento ---
-  { id: 'toren', name: 'Toren — Ferreiro', img: 'villager_a', map: 'over', x: 8, y: 18 },
-  { id: 'mira', name: 'Mira — Alquimista', img: 'princess_a', map: 'over', x: 20, y: 18 },
-  { id: 'irina', name: 'Irina — Sacerdotisa', img: 'princess_c', map: 'over', x: 6, y: 29 },
-  { id: 'bento', name: 'Bento — Cocheiro', img: 'villager_b', map: 'over', x: 20, y: 29 },
-  { id: 'cedric', name: 'Cedric — Capitão da Guarda', img: 'guard_a', map: 'over', x: 13, y: 18 },
+  { id: 'toren', name: 'Toren — Ferreiro', img: 'villager_a', map: 'over', x: 8, y: 33 },
+  { id: 'mira', name: 'Mira — Alquimista', img: 'princess_a', map: 'over', x: 20, y: 33 },
+  { id: 'irina', name: 'Irina — Sacerdotisa', img: 'princess_c', map: 'over', x: 6, y: 44 },
+  { id: 'bento', name: 'Bento — Cocheiro', img: 'villager_b', map: 'over', x: 20, y: 44 },
+  { id: 'cedric', name: 'Cedric — Capitão da Guarda', img: 'guard_a', map: 'over', x: 13, y: 33 },
 
   // --- Ardentia: o eixo comercial de frente para a praça ---
   { id: 'gorm', name: 'Gorm — Caixa do Banco', img: 'villager_a', map: 'vale', x: 14, y: 20 },
@@ -212,7 +217,7 @@ export const NPCS = [
   { id: 'rosa', name: 'Rosa — Estalajadeira', img: 'princess', map: 'vale', x: 32, y: 46 },
 
   // --- Castelo de Aurora ---
-  { id: 'ricard', name: 'Ricard — Guarda Real', img: 'guard_a', map: 'castelo', x: 23, y: 28 },
+  { id: 'ricard', name: 'Ricard — Guarda Real', img: 'guard_a', map: 'over', x: 22, y: 13 },
   { id: 'rei', name: 'Rei Aldric de Aurora', img: 'guard_b', map: 'trono', x: 19, y: 16 },
 ];
 
@@ -226,16 +231,16 @@ export const BANCARIOS = ['gorm'];
 
 // Templos: onde se renasce. Ficam na porta do prédio, não dentro dele.
 export const TEMPLOS = {
-  lumera:   { nome: 'Santuário de Lumera',  map: 'over', x: 8,  y: 29 },
+  lumera:   { nome: 'Santuário de Lumera',  map: 'over', x: 8,  y: 44 },
   ardentia: { nome: 'Templo de Ardentia',   map: 'vale', x: 16, y: 37 },
 };
 
 // Viagem paga. O preço é o que separa "atalho conveniente" de "teleporte
 // que torna o mundo irrelevante" — andar continua sendo de graça.
 export const DESTINOS = {
-  lumera:    { nome: 'Lumera',                map: 'over', x: 21, y: 29, preco: 60 },
-  castelo:   { nome: 'Castelo de Aurora',     map: 'castelo', x: 20, y: 28, preco: 40 },
-  minas:     { nome: 'Entrada das Minas',     map: 'over', x: 14, y: 7,  preco: 35 },
+  lumera:    { nome: 'Lumera',                map: 'over', x: 21, y: 44, preco: 60 },
+  castelo:   { nome: 'Castelo de Aurora',     map: 'over', x: 20, y: 14, preco: 40 },
+  minas:     { nome: 'Entrada das Minas',     map: 'over', x: 14, y: 22, preco: 35 },
   ardentia:  { nome: 'Ardentia',              map: 'vale', x: 31, y: 37, preco: 60 },
   cemiterio: { nome: 'Cemitério de Ardentia', map: 'vale', x: 17, y: 47, preco: 40 },
 };
@@ -269,28 +274,27 @@ export const RESPAWN_POINTS = {
 // o over já usa o tile 12 para a mina e não dá para ter dois "enter".
 export const PORTAIS = {
   // estrada do castelo (norte do over) <-> gramado diante do portão
-  'over:30,3': { map: 'castelo', x: 19, y: 28 },
-  'over:31,3': { map: 'castelo', x: 20, y: 28 },
-  'castelo:18,29': { map: 'over', x: 30, y: 4 },
-  'castelo:19,29': { map: 'over', x: 30, y: 4 },
-  'castelo:20,29': { map: 'over', x: 31, y: 4 },
-  'castelo:21,29': { map: 'over', x: 31, y: 4 },
+  'over:19,12': { map: 'trono', x: 19, y: 22 },
+  'over:20,12': { map: 'trono', x: 20, y: 22 },
   // portão do castelo <-> sala do trono
-  'castelo:19,24': { map: 'trono', x: 19, y: 22 },
-  'castelo:20,24': { map: 'trono', x: 20, y: 22 },
-  'trono:19,24': { map: 'castelo', x: 19, y: 25 },
-  'trono:20,24': { map: 'castelo', x: 20, y: 25 },
+  'trono:19,24': { map: 'over', x: 19, y: 13 },
+  'trono:20,24': { map: 'over', x: 20, y: 13 },
   // trilha oeste do over <-> trilha sul da floresta
-  'over:2,12': { map: 'floresta', x: 24, y: 47 },
-  'over:2,13': { map: 'floresta', x: 25, y: 47 },
-  'floresta:24,49': { map: 'over', x: 3, y: 12 },
-  'floresta:25,49': { map: 'over', x: 3, y: 13 },
+  'over:2,27': { map: 'floresta', x: 24, y: 47 },
+  'over:2,28': { map: 'floresta', x: 25, y: 47 },
+  'floresta:24,49': { map: 'over', x: 3, y: 27 },
+  'floresta:25,49': { map: 'over', x: 3, y: 28 },
+  // trilha norte da floresta <-> Bosque Encantado
+  'floresta:12,0': { map: 'floresta2', x: 25, y: 46 },
+  'floresta:12,1': { map: 'floresta2', x: 25, y: 46 },
+  'floresta2:25,49': { map: 'floresta', x: 12, y: 3 },
+  'floresta2:26,49': { map: 'floresta', x: 12, y: 3 },
 };
 
 // Ligações entre mapas: tile 12 entra, tile 11 sai.
 export const PORTALS = {
   over: { enter: { map: 'mine', x: 15, y: 21 } },
-  mine: { exit: { map: 'over', x: 18, y: 6 } },
+  mine: { exit: { map: 'over', x: 18, y: 21 } },
   // A entrada das catacumbas fica na capela do cemitério, fora das muralhas.
   vale: { enter: { map: 'cata', x: 14, y: 18 } },
   cata: { exit: { map: 'vale', x: 17, y: 46 } },
