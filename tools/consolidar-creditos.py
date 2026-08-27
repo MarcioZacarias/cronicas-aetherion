@@ -53,6 +53,14 @@ estalagem indica OpenGameArt como origem.
 PENDENTE: a autoria exata de house1/1b/1c não foi confirmada. Se estes
 arquivos vierem de uma submissão que exija atribuição nominal, o nome do
 autor precisa entrar aqui antes de qualquer distribuição pública."""),
+
+    ('Castelo de Aurora e Floresta Profunda',
+     'Mapas pintados (public/assets/mapas/): castelo.png, trono.png, floresta.png',
+     """Fornecidos pelo autor do projeto como livres (pasta Downloads/cronicas).
+
+PENDENTE: origem e autoria exatas não confirmadas. Se vierem de submissão
+que exija atribuição nominal, o crédito precisa entrar aqui antes de
+qualquer distribuição pública."""),
 ]
 
 CABECALHO = """CRÉDITOS DE ARTE — Crônicas de Aetherion

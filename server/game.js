@@ -10,7 +10,7 @@
 import { buildWorld, BLOCK, DIR } from '../public/shared/world.js';
 import {
   CLASSES, MTYPES, NPCS, SPAWNS, ITEMS, EQ_SLOTS, SHOPS,
-  RESPAWN_POINTS, PORTALS, TEMPLOS, DESTINOS, ESTACOES, BANCARIOS,
+  RESPAWN_POINTS, PORTALS, PORTAIS, TEMPLOS, DESTINOS, ESTACOES, BANCARIOS,
   baseStats, spellPower, xpNeeded,
 } from '../public/shared/content.js';
 import { query } from './db.js';
@@ -644,6 +644,11 @@ export class Game {
         }
       }
     }
+    // Portais pontuais (castelo, trono, floresta): disparam pela posição
+    // exata, porque o tile 12 do over já pertence à mina.
+    const salto = PORTAIS[`${p.map}:${p.tx},${p.ty}`];
+    if (salto) return this.teleport(p, salto);
+
     const tile = this.maps[p.map].tiles[p.ty][p.tx];
     const link = PORTALS[p.map];
     if (tile === 12 && link && link.enter) return this.teleport(p, link.enter);

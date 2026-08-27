@@ -91,6 +91,10 @@ const SPRITES = ['soldier', 'guard', 'princess', 'villager', 'slime', 'bat', 'sn
   'princess_a', 'princess_b', 'princess_c', 'lpc-sets', 'casas', 'lpc-props'];
 const IMG = {};
 
+// Fundos dos mapas pintados (castelo, trono, floresta): a imagem inteira
+// é o cenário, carregada uma vez e desenhada em um único drawImage.
+const FUNDOS = {};
+
 // Índices dos atlas: city.png (portas/janelas recortadas das fachadas) e
 // lpc-sets.png (telhados, calçamento e alvenaria importados dos pacotes LPC
 // como fatias de 9 — ver tools/importar-lpc.py).
@@ -120,11 +124,20 @@ function carregarSprites() {
     .then((r) => r.json())
     .then((j) => { TELHADOS = j; })
     .catch(() => { console.warn('casas.json ausente: prédios não serão desenhados'); });
+  const fundos = Object.values(MAPS)
+    .filter((m) => m.fundo)
+    .map((m) => new Promise((resolve) => {
+      const im = new Image();
+      im.onload = () => resolve();
+      im.onerror = () => { console.warn('fundo ausente:', m.fundo); resolve(); };
+      im.src = `/assets/mapas/${m.fundo}.png`;
+      FUNDOS[m.fundo] = im;
+    }));
   const catProps = fetch('/assets/lpc-props.json')
     .then((r) => r.json())
     .then((j) => { PROPS = j; })
     .catch(() => { console.warn('lpc-props.json ausente: mobiliário volta ao desenho procedural'); });
-  return Promise.all([...imagens, indice, telhados, catTelhados, catProps]);
+  return Promise.all([...imagens, ...fundos, indice, telhados, catTelhados, catProps]);
 }
 
 // ---------------------------------------------------------
@@ -689,6 +702,10 @@ function simboloEclipse(cx, cy, r, alpha) {
 function nomeRegiao() {
   const me = meuEnt();
   if (!me) return MAPS[mapaAtual].name;
+  // Mapas novos têm um nome só; as sub-regiões abaixo são dos 4 originais.
+  if (!['over', 'mine', 'cata', 'vale'].includes(mapaAtual)) {
+    return MAPS[mapaAtual].name;
+  }
   const { x, y } = me;
   if (mapaAtual === 'mine') {
     if (y >= 16) return 'Minas de Aurora — Galeria Superior';
@@ -775,7 +792,14 @@ function render(dt) {
   const x0 = Math.max(0, vx0), y0 = Math.max(0, vy0);
   const x1 = Math.min(M.w - 1, vx1), y1 = Math.min(M.h - 1, vy1);
 
-  for (let y = vy0; y <= vy1; y++) for (let x = vx0; x <= vx1; x++) {
+  // Mapa pintado: um drawImage cobre o cenário inteiro (a imagem tem
+  // exatamente TILE px por tile). A grade continua valendo para colisão,
+  // mas não é desenhada.
+  const fundo = M.fundo && FUNDOS[M.fundo];
+  const pintado = fundo && fundo.complete && fundo.naturalWidth;
+  if (pintado) {
+    ds(fundo, 0, 0, fundo.naturalWidth, fundo.naturalHeight, 0, 0);
+  } else for (let y = vy0; y <= vy1; y++) for (let x = vx0; x <= vx1; x++) {
     const dentro = x >= 0 && y >= 0 && x < M.w && y < M.h;
     if (!dentro) {
       if (!escuro) ds(IMG.water, waterFrame * 32, 160, 32, 32, x * TILE, y * TILE);

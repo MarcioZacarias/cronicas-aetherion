@@ -399,6 +399,16 @@ export function buildWorld() {
     objeto(m, 'lampiao', 23, 19); objeto(m, 'barril', 24, 19);
 
     T[28][4] = 4; T[4][35] = 4;
+    // Estrada do castelo: da rua principal para leste e depois norte, até
+    // a borda do mapa. Sobrescreve o que estiver no caminho (inclusive a
+    // árvore fixa em 25,19) — estrada passa por cima de mato.
+    for (let x = 25; x <= 31; x++) { T[19][x] = 1; T[20][x] = 1; }
+    for (let y = 3; y <= 19; y++) { T[y][30] = 1; T[y][31] = 1; }
+    T[4][29] = 16; // placa: "Castelo de Aurora"
+
+    // Trilha da floresta: sai da beira oeste da vila.
+    T[12][3] = 1; T[13][3] = 1;
+
     m.holeAnchor = { x: 17, y: 3 };
     m.boat = { x: 14, y: 30 };
     m.name = 'Ilha de Aurora';
@@ -592,6 +602,76 @@ export function buildWorld() {
     m.dark = true;
     m.name = 'Catacumbas de Ardentia';
     MAPS.cata = m;
+  }
+
+  // ---------------------------------------------------------
+  // Mapas PINTADOS: a imagem inteira é o cenário; a grade de tiles só
+  // existe para colisão e caminho. As imagens têm exatamente TILE px por
+  // tile (castelo 40x30 = 1280x960), então casam 1:1 com o mundo.
+  //
+  // Construídos SEM rng (deco fixo): consumi-lo aqui deslocaria a semente
+  // e mudaria todos os mapas gerados antes.
+  // ---------------------------------------------------------
+  function mapaPintado(nome, fundo, w, h, preench) {
+    const tiles = [], deco = [];
+    for (let y = 0; y < h; y++) {
+      tiles[y] = []; deco[y] = [];
+      for (let x = 0; x < w; x++) { tiles[y][x] = preench; deco[y][x] = 0; }
+    }
+    return { w, h, tiles, deco, buildings: [], props: [], res: [], fundo, name: nome };
+  }
+  const bloquear = (m, x0, y0, x1, y1) => {
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      if (dentro(m, x, y)) m.tiles[y][x] = 6;
+    }
+  };
+  const liberar = (m, x0, y0, x1, y1) => {
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      if (dentro(m, x, y)) m.tiles[y][x] = 0;
+    }
+  };
+
+  // ---------- Castelo de Aurora (exterior) ----------
+  {
+    const m = mapaPintado('Castelo de Aurora', 'castelo', 40, 30, 0);
+    // A face da muralha desce até a linha 28 (medido no overlay de
+    // colisão — bloquear só até a 26 deixava andar por cima da parede).
+    bloquear(m, 3, 0, 36, 28);
+    liberar(m, 18, 24, 21, 28);     // arco do portão, até o pátio
+    liberar(m, 14, 27, 27, 28);     // calçamento diante do portão
+    MAPS.castelo = m;
+  }
+
+  // ---------- Sala do Trono (interior) ----------
+  {
+    const m = mapaPintado('Sala do Trono', 'trono', 40, 30, 6);
+    // Medidas tiradas do overlay de colisão sobre a imagem: o piso de
+    // madeira só começa na linha 9 (acima é parede com arcos e tochas), o
+    // estrado do trono vai de x=16 a 23 e a porta dupla fica em y=23..24.
+    liberar(m, 13, 9, 26, 16);      // salão superior (piso de madeira)
+    bloquear(m, 16, 9, 23, 15);     // estrado do trono
+    liberar(m, 3, 17, 36, 22);      // salão inferior
+    bloquear(m, 3, 17, 12, 18);     // parede de janelas da ala oeste
+    bloquear(m, 27, 17, 36, 18);    // parede de janelas da ala leste
+    bloquear(m, 16, 18, 24, 21);    // fosso central
+    liberar(m, 18, 23, 21, 24);     // porta dupla ao sul
+    MAPS.trono = m;
+  }
+
+  // ---------- Floresta Profunda ----------
+  {
+    const m = mapaPintado('Floresta Profunda', 'floresta', 50, 50, 0);
+    bloquear(m, 0, 0, 13, 14);      // árvores gigantes a noroeste
+    bloquear(m, 14, 0, 49, 11);     // mata e falésia ao norte
+    bloquear(m, 22, 12, 43, 23);    // falésia central com tocas
+    bloquear(m, 13, 12, 21, 19);    // boca da caverna a noroeste da clareira
+    bloquear(m, 8, 12, 11, 26);     // tronco da árvore gigante do oeste
+    bloquear(m, 43, 0, 49, 49);     // mata leste (trilhos da mina são cenário)
+    bloquear(m, 0, 15, 3, 49);      // mata oeste
+    bloquear(m, 0, 42, 23, 49);     // mata sudoeste
+    bloquear(m, 26, 38, 49, 49);    // mata sudeste
+    liberar(m, 24, 36, 25, 49);     // trilha de saída ao sul
+    MAPS.floresta = m;
   }
 
   // A grade de reserva era andaime da construção: não interessa a quem joga.

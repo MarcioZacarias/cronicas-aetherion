@@ -172,6 +172,12 @@ export const SPAWNS = [
   ['zombie', 'vale', 12, 56], ['zombie', 'vale', 22, 46],
   ['spectre', 'vale', 14, 49], ['spectre', 'vale', 19, 56], ['spectre', 'vale', 9, 50],
 
+  // Floresta Profunda
+  ['slime', 'floresta', 12, 24], ['slime', 'floresta', 15, 30], ['slime', 'floresta', 25, 28],
+  ['snake', 'floresta', 10, 36], ['snake', 'floresta', 30, 30],
+  ['bee', 'floresta', 18, 22], ['bee', 'floresta', 35, 28],
+  ['flower', 'floresta', 38, 32], ['flower', 'floresta', 6, 28],
+
   // Catacumbas
   ['cultist', 'cata', 10, 9], ['cultist', 'cata', 18, 10], ['cultist', 'cata', 20, 9], ['cultist', 'cata', 23, 8], ['cultist', 'cata', 25, 10],
   ['spectre', 'cata', 5, 7], ['spectre', 'cata', 8, 9], ['spectre', 'cata', 6, 10],
@@ -204,6 +210,10 @@ export const NPCS = [
   { id: 'aldous', name: 'Velho Aldous — Mendigo', img: 'villager_c', map: 'vale', x: 28, y: 27 },
   { id: 'nilo', name: 'Nilo — Garoto Curioso', img: 'villager_b', map: 'vale', x: 33, y: 25 },
   { id: 'rosa', name: 'Rosa — Estalajadeira', img: 'princess', map: 'vale', x: 32, y: 46 },
+
+  // --- Castelo de Aurora ---
+  { id: 'ricard', name: 'Ricard — Guarda Real', img: 'guard_a', map: 'castelo', x: 23, y: 28 },
+  { id: 'rei', name: 'Rei Aldric de Aurora', img: 'guard_b', map: 'trono', x: 19, y: 16 },
 ];
 
 // ---------------------------------------------------------
@@ -224,6 +234,7 @@ export const TEMPLOS = {
 // que torna o mundo irrelevante" — andar continua sendo de graça.
 export const DESTINOS = {
   lumera:    { nome: 'Lumera',                map: 'over', x: 21, y: 29, preco: 60 },
+  castelo:   { nome: 'Castelo de Aurora',     map: 'castelo', x: 20, y: 28, preco: 40 },
   minas:     { nome: 'Entrada das Minas',     map: 'over', x: 14, y: 7,  preco: 35 },
   ardentia:  { nome: 'Ardentia',              map: 'vale', x: 31, y: 37, preco: 60 },
   cemiterio: { nome: 'Cemitério de Ardentia', map: 'vale', x: 17, y: 47, preco: 40 },
@@ -231,7 +242,7 @@ export const DESTINOS = {
 
 // Cada cocheiro oferece as rotas que fazem sentido de onde ele está.
 export const ESTACOES = {
-  bento: ['ardentia', 'minas'],
+  bento: ['ardentia', 'minas', 'castelo'],
   jorun: ['lumera', 'cemiterio'],
 };
 
@@ -251,6 +262,29 @@ export const RESPAWN_POINTS = {
   mine: TEMPLOS.lumera,
   vale: TEMPLOS.ardentia,
   cata: TEMPLOS.ardentia,
+};
+
+// Portais PONTUAIS: chave "mapa:x,y" -> destino. Diferente dos PORTALS
+// por tile (12/11), estes disparam pela posição exata — necessário porque
+// o over já usa o tile 12 para a mina e não dá para ter dois "enter".
+export const PORTAIS = {
+  // estrada do castelo (norte do over) <-> gramado diante do portão
+  'over:30,3': { map: 'castelo', x: 19, y: 28 },
+  'over:31,3': { map: 'castelo', x: 20, y: 28 },
+  'castelo:18,29': { map: 'over', x: 30, y: 4 },
+  'castelo:19,29': { map: 'over', x: 30, y: 4 },
+  'castelo:20,29': { map: 'over', x: 31, y: 4 },
+  'castelo:21,29': { map: 'over', x: 31, y: 4 },
+  // portão do castelo <-> sala do trono
+  'castelo:19,24': { map: 'trono', x: 19, y: 22 },
+  'castelo:20,24': { map: 'trono', x: 20, y: 22 },
+  'trono:19,24': { map: 'castelo', x: 19, y: 25 },
+  'trono:20,24': { map: 'castelo', x: 20, y: 25 },
+  // trilha oeste do over <-> trilha sul da floresta
+  'over:2,12': { map: 'floresta', x: 24, y: 47 },
+  'over:2,13': { map: 'floresta', x: 25, y: 47 },
+  'floresta:24,49': { map: 'over', x: 3, y: 12 },
+  'floresta:25,49': { map: 'over', x: 3, y: 13 },
 };
 
 // Ligações entre mapas: tile 12 entra, tile 11 sai.
