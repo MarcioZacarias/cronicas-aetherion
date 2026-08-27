@@ -90,27 +90,16 @@ export const CASAS = {
 
 // Cada estabelecimento ganha um porte próprio — o solar é o maior, então
 // vai para banco e templo; o chalé, com frontão, para as lojas.
-// Só chalé e solar são CASAS: o "telhado" é uma laje de telha sem
-// fachada — sem porta e sem janela —, peça para encostar em outra coisa.
-// Usá-lo como prédio deixava a vila com quatro blocos cegos.
-export const CASAS_COM_FACHADA = [
-  'chale_roxo', 'chale_cinza', 'chale_vermelho',
-  'solar_roxo', 'solar_cinza', 'solar_vermelho',
-];
-
-// Casas avulsas, cada uma um PNG inteiro já desenhado. São de outro
-// estilo — vista 3/4 e mais detalhe — então ficam concentradas em Lumera,
-// para a vila ter identidade própria em vez de misturar dois traços na
-// mesma rua.
-export const CASAS_LUMERA = ['house1', 'house1b', 'house1c'];
-
-// O solar tem 8 de altura e só cabe em lote grande; na fileira do comércio
-// ele avançava sobre a linha das portas, onde ficam os NPCs.
+// Decisão de direção de arte: TODAS as construções usam a mesma casa — a
+// estalagem de telhado azul (oga_blueroofinn, 9x8). Um único modelo de
+// prédio deixa a cidade coesa; misturar traços diferentes na mesma rua
+// era o que dava cara de colagem.
+export const CASAS_COM_FACHADA = ['oga_blueroofinn'];
 export const CASA_POR_TIPO = {
-  templo: 'solar_roxo',
-  banco: 'chale_cinza', prefeitura: 'chale_vermelho', biblioteca: 'chale_roxo',
-  armaria: 'chale_vermelho', botica: 'chale_cinza',
-  taverna: 'chale_roxo', estacao: 'chale_cinza',
+  templo: 'oga_blueroofinn', banco: 'oga_blueroofinn',
+  prefeitura: 'oga_blueroofinn', biblioteca: 'oga_blueroofinn',
+  armaria: 'oga_blueroofinn', botica: 'oga_blueroofinn',
+  taverna: 'oga_blueroofinn', estacao: 'oga_blueroofinn',
 };
 
 // Cada tipo de estabelecimento tem telhado próprio: dá para achar o banco
@@ -372,20 +361,18 @@ export function buildWorld() {
     // Lumera é vila: casas PEQUENAS, fixadas explicitamente. Deixar o tipo
     // escolher traria o chalé de 7 de altura e o solar de 8, que engolem a
     // rua onde Toren e Mira ficam.
-    // Chalé nas quatro: é a casa pequena que TEM fachada, com porta e
-    // óculo. A fileira norte encosta a base na rua (y=18), a sul em y=28.
-    // As três casas avulsas mais a estalagem de telhado azul: Lumera tem
-    // exatamente quatro prédios, então o conjunto fecha certo.
+    // Quatro lotes iguais de 9x8: a fileira norte encosta a base na rua
+    // (y=17, com a rua em 18..20) e a sul termina em y=28, deixando a
+    // beira de y=29 livre para os NPCs e o ponto do templo.
     const SERVICOS_LUMERA = [
-      [4, 11, 'house1', 'armaria', 'Forja de Toren'],
-      [16, 11, 'house1b', 'botica', 'Botica de Mira'],
-      [4, 21, 'house1c', 'templo', 'Santuário de Lumera'],
-      [16, 21, 'oga_blueroofinn', 'estacao', 'Estalagem do Corvo'],
+      [4, 10, 'armaria', 'Forja de Toren'],
+      [16, 10, 'botica', 'Botica de Mira'],
+      [4, 21, 'templo', 'Santuário de Lumera'],
+      [16, 21, 'estacao', 'Estalagem do Corvo'],
     ];
-    for (const [bx, by, casa, tipo, nome] of SERVICOS_LUMERA) {
-      const [cw, ch] = CASAS[casa];
-      reservar(m, bx, by, bx + cw - 1, by + ch - 1);
-      predio(m, bx, by, cw, ch, null, { emReserva: true, tipo, nome, casa });
+    for (const [bx, by, tipo, nome] of SERVICOS_LUMERA) {
+      reservar(m, bx, by, bx + 8, by + 7);
+      predio(m, bx, by, 9, 8, null, { emReserva: true, tipo, nome });
     }
 
     // Props de 2 tiles (banca) precisam de folga: eles ocupam 1 tile de
@@ -453,57 +440,28 @@ export function buildWorld() {
     // Praça central e mercado, também reservados antes de construir.
     reservar(m, 22, 20, 36, 28, 18);
     reservar(m, 38, 20, 48, 28, 18);
-    // ===== Templo, no fim da avenida =====
-    // É o ponto de renascimento da cidade: quem morre acorda aqui.
-    // O templo é o único solar (8x8) e NÃO pode ficar sobre a avenida:
-    // ali ele fecha a única ligação entre o quarteirão norte e o resto da
-    // cidade, e todo o noroeste vira uma ilha. Vai para o canto oeste,
-    // com um adro reservado à frente.
-    reservar(m, 9, 4, 18, 14);
-    predio(m, 10, 5, 8, 8, null,
-      { emReserva: true, tipo: 'templo', nome: 'Templo de Ardentia' });
-    objeto(m, 'lampiao', 9, 13); objeto(m, 'lampiao', 18, 13);
     objeto(m, 'braseiro', 28, 12); objeto(m, 'braseiro', 31, 12);
 
-    // ===== Eixo comercial: a fileira que dá de frente para a praça =====
-    // Todo serviço da cidade fica na mesma rua, para o jogador não ter de
-    // caçar prédio: banco, biblioteca, armaria, botica, prefeitura, taverna.
-    // Larguras em módulos de 5, que é o que o telhado inteiro do LPC exige.
-    // Quatro na fileira norte; prefeitura e taverna descem para o bairro
-    // sul, porque o adro do templo comeu dois lotes desta fileira.
+    // ===== Estabelecimentos: todos 9x8, ancorados pela BASE =====
+    // Fileira norte com a base em y=19 (portas para a rua y=20) e fileira
+    // sul com a base em y=36 (portas para a faixa y=37). O templo é o
+    // ponto de renascimento; a taverna foi para a estrada do porto, fora
+    // da muralha, porque no bairro sul não cabia um terceiro lote de 9.
     const COMERCIO = [
-      [20, 19, 'banco', 'Banco de Valedorn'],
-      [32, 19, 'biblioteca', 'Biblioteca de Ardentia'],
-      [38, 19, 'armaria', 'Armaria do Martelo'],
-      [44, 19, 'botica', 'Botica da Raiz'],
-      [12, 36, 'prefeitura', 'Prefeitura de Ardentia'],
-      [20, 36, 'taverna', 'Taverna do Corvo'],
+      [10, 19, 'banco', 'Banco de Valedorn'],
+      [19, 19, 'biblioteca', 'Biblioteca de Ardentia'],
+      [32, 19, 'armaria', 'Armaria do Martelo'],
+      [41, 19, 'botica', 'Botica da Raiz'],
+      [12, 36, 'templo', 'Templo de Ardentia'],
+      [33, 36, 'estacao', 'Estação das Carruagens'],
+      [42, 36, 'prefeitura', 'Prefeitura de Ardentia'],
     ];
     for (const [bx, base, tipo, nome] of COMERCIO) {
-      // Ancorado pela BASE: as casas têm alturas diferentes e alinhá-las
-      // pelo topo deixaria umas soltas no meio do lote.
-      const alt = CASAS[CASA_POR_TIPO[tipo]][1];
-      reservar(m, bx, base - alt + 1, bx + 6, base);
-      predio(m, bx, base - alt + 1, 6, alt, null, { emReserva: true, tipo, nome });
-      objeto(m, 'lampiao', bx - 1, base + 1);
-    }
-
-    // ===== Estação das carruagens, perto do portão sul =====
-    reservar(m, 33, 32, 39, 36);
-    predio(m, 33, 33, 6, 4, 'house',
-      { emReserva: true, tipo: 'estacao', nome: 'Estação das Carruagens' });
-    // Nada de mobiliário na faixa y=37: ela é um corredor de um tile entre
-    // a estação e a muralha, e dois barris ali isolam o cocheiro do resto
-    // da cidade. Os volumes ficam na travessa, acima do prédio.
-    objeto(m, 'engradado', 32, 30); objeto(m, 'barril', 40, 30);
-
-    // ===== Quarteirões =====
-    // Quatro fileiras de norte a sul; o que esbarra em rua ou praça é
-    // pulado automaticamente pelo quarteirao(). A fileira sul tem base em
-    // 36 porque a linha 37 é a faixa livre junto à muralha.
-    for (const baseY of [11, 19, 29, 37]) {
-      quarteirao(m, MX0 + 2, 27, baseY);
-      quarteirao(m, 32, MX1 - 2, baseY);
+      reservar(m, bx, base - 7, bx + 8, base);
+      predio(m, bx, base - 7, 9, 8, null, { emReserva: true, tipo, nome });
+      // Lampião só na fileira norte: na sul a frente é o corredor de um
+      // tile junto à muralha, e mobiliário ali ilharia os NPCs.
+      if (base === 19) objeto(m, 'lampiao', bx - 1, base + 1);
     }
 
     // ===== Mobiliário urbano =====
@@ -534,10 +492,10 @@ export function buildWorld() {
     // Estrada do portão sul até o porto.
     preencher(m, 29, MY1 + 1, 30, 53, 1);
     preencher(m, 27, 53, 40, 54, 1);
-    // Estalagem do Viajante, à beira da estrada.
-    predio(m, 33, 41, 6, 5, 'house2', { porta: 3 });
-    objeto(m, 'lampiao', 32, 45); objeto(m, 'lampiao', 39, 45);
-    objeto(m, 'barril', 40, 45);
+    // Taverna do Corvo, à beira da estrada do porto (não coube um
+    // terceiro lote de 9 dentro do bairro sul).
+    predio(m, 33, 41, 9, 8, null, { tipo: 'taverna', nome: 'Taverna do Corvo' });
+    objeto(m, 'lampiao', 32, 45);
     // Estrada do portão norte para os campos.
     preencher(m, 29, 2, 30, MY0 - 1, 1);
 
@@ -558,8 +516,10 @@ export function buildWorld() {
      [9,54],[14,55],[18,55],[22,54],[12,45],[21,45]]
       .forEach(([x, y]) => { if (T[y][x] === 0) T[y][x] = 15; });
     T[52][8] = 4;
-    // Capela do cemitério, com a entrada das catacumbas ao lado.
-    predio(m, 14, 40, 6, 5, 'chapel', { porta: 3 });
+    // Capela do cemitério. A casa de 9x8 ancorada em y=37 deixa a porta
+    // em y=44 e o portal das catacumbas logo à frente, em (17,45) — na
+    // posição antiga (14,40) o prédio maior engoliria o portal.
+    predio(m, 12, 37, 9, 8, null, {});
     T[45][17] = 12; // portal para as catacumbas
     preencher(m, 16, 45, 18, 45, 1);
     preencher(m, 17, 46, 17, 50, 1);

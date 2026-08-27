@@ -192,18 +192,18 @@ export const NPCS = [
   // --- Vila de Lumera: cada um na porta do seu estabelecimento ---
   { id: 'toren', name: 'Toren — Ferreiro', img: 'villager_a', map: 'over', x: 8, y: 18 },
   { id: 'mira', name: 'Mira — Alquimista', img: 'princess_a', map: 'over', x: 20, y: 18 },
-  { id: 'irina', name: 'Irina — Sacerdotisa', img: 'princess_c', map: 'over', x: 7, y: 28 },
+  { id: 'irina', name: 'Irina — Sacerdotisa', img: 'princess_c', map: 'over', x: 6, y: 29 },
   { id: 'bento', name: 'Bento — Cocheiro', img: 'villager_b', map: 'over', x: 20, y: 29 },
   { id: 'cedric', name: 'Cedric — Capitão da Guarda', img: 'guard_a', map: 'over', x: 13, y: 18 },
 
   // --- Ardentia: o eixo comercial de frente para a praça ---
-  { id: 'gorm', name: 'Gorm — Caixa do Banco', img: 'villager_a', map: 'vale', x: 23, y: 20 },
-  { id: 'elara', name: 'Elara — Bibliotecária', img: 'princess_c', map: 'vale', x: 35, y: 20 },
-  { id: 'harlan', name: 'Mestre Harlan — Armeiro', img: 'guard_b', map: 'vale', x: 41, y: 20 },
-  { id: 'sela', name: 'Sela — Boticária', img: 'princess_b', map: 'vale', x: 47, y: 20 },
-  { id: 'edmun', name: 'Escrivão Edmun — Prefeitura', img: 'villager_c', map: 'vale', x: 15, y: 37 },
-  { id: 'brida', name: 'Brida — Taverneira', img: 'princess', map: 'vale', x: 23, y: 37 },
-  { id: 'seraf', name: 'Serafina — Sacerdotisa do Templo', img: 'princess_a', map: 'vale', x: 11, y: 13 },
+  { id: 'gorm', name: 'Gorm — Caixa do Banco', img: 'villager_a', map: 'vale', x: 14, y: 20 },
+  { id: 'elara', name: 'Elara — Bibliotecária', img: 'princess_c', map: 'vale', x: 23, y: 20 },
+  { id: 'harlan', name: 'Mestre Harlan — Armeiro', img: 'guard_b', map: 'vale', x: 36, y: 20 },
+  { id: 'sela', name: 'Sela — Boticária', img: 'princess_b', map: 'vale', x: 45, y: 20 },
+  { id: 'edmun', name: 'Escrivão Edmun — Prefeitura', img: 'villager_c', map: 'vale', x: 46, y: 37 },
+  { id: 'brida', name: 'Brida — Taverneira', img: 'princess', map: 'vale', x: 36, y: 49 },
+  { id: 'seraf', name: 'Serafina — Sacerdotisa do Templo', img: 'princess_a', map: 'vale', x: 18, y: 37 },
   { id: 'jorun', name: 'Jorun — Mestre das Carruagens', img: 'guard_b', map: 'vale', x: 32, y: 37 },
   { id: 'lyra', name: 'Capitã Lyra — Guarda de Ardentia', img: 'guard_a', map: 'vale', x: 30, y: 37 },
   { id: 'tomas', name: 'Irmão Tomas — Irmandade', img: 'villager_b', map: 'vale', x: 28, y: 21 },
@@ -226,8 +226,8 @@ export const BANCARIOS = ['gorm'];
 
 // Templos: onde se renasce. Ficam na porta do prédio, não dentro dele.
 export const TEMPLOS = {
-  lumera:   { nome: 'Santuário de Lumera',  map: 'over', x: 9,  y: 28 },
-  ardentia: { nome: 'Templo de Ardentia',   map: 'vale', x: 14, y: 13 },
+  lumera:   { nome: 'Santuário de Lumera',  map: 'over', x: 8,  y: 29 },
+  ardentia: { nome: 'Templo de Ardentia',   map: 'vale', x: 16, y: 37 },
 };
 
 // Viagem paga. O preço é o que separa "atalho conveniente" de "teleporte
